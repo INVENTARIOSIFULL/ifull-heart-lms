@@ -38,7 +38,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "445033704847",
   appId: "1:445033704847:web:142736aa6e92d8e58c2ffa"
 };
-
+  
 const app  = initializeApp(FIREBASE_CONFIG);
 const db   = getFirestore(app);
 const auth = getAuth(app);
@@ -250,6 +250,7 @@ code{font-family:var(--mono);}
 .ttype{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:99px;font-size:10px;font-weight:700;}
 .tt-checkin{background:var(--teal-l);color:var(--teal);}
 .tt-conteo{background:var(--purple-l);color:var(--purple);}
+.tt-dirigido{background:var(--blue-l);color:var(--blue);}
 .tt-otro{background:var(--bg3);color:var(--txt2);border:1px solid var(--border);}
 
 /* ══ TABLE ══════════════════════════════════════════════ */
@@ -508,12 +509,17 @@ body.role-operador .adm{display:none!important;}
     <div id="area-op" style="display:none;">
       <div class="alert al-orange" style="margin-bottom:14px;">
         <i class="ti ti-info-circle"></i>
-        <div>Ingresa tu nombre. Solo verás las tareas que te han sido asignadas.</div>
+        <div>Selecciona tu nombre. Solo verás las tareas que te han sido asignadas.</div>
       </div>
       <div class="fg">
-        <label class="fl">Tu nombre completo</label>
-        <input class="fc" id="l-nombre" placeholder="Ej: Carlos Martínez"
-               onkeydown="if(event.key==='Enter')doLoginOp()">
+        <label class="fl">Selecciona tu nombre</label>
+        <select class="fc" id="l-nombre-sel" style="margin-bottom:6px;">
+          <option value="">Cargando operadores…</option>
+        </select>
+        <div id="l-op-vacio" style="display:none;" class="alert al-warn" style="margin-top:6px;">
+          <i class="ti ti-alert-triangle"></i>
+          <div>No hay operadores registrados. Pide al administrador que te agregue primero.</div>
+        </div>
       </div>
       <button class="btn btn-o" onclick="doLoginOp()"
               style="width:100%;justify-content:center;padding:10px 14px;">
@@ -1232,6 +1238,7 @@ body.role-operador .adm{display:none!important;}
         <select class="fc" id="t-tipo" onchange="toggleCamposTarea()">
           <option value="checkin">Check-In</option>
           <option value="conteo">Conteo Cruzado</option>
+          <option value="dirigido">Conteo Dirigido</option>
           <option value="otro">Otro</option>
         </select></div>
       <div class="fg"><label class="fl">Urgencia</label>
@@ -1435,6 +1442,7 @@ function setMode(m){
   document.getElementById('area-adm').style.display = m==='admin'    ? 'block' : 'none';
   document.getElementById('area-op').style.display  = m==='operador' ? 'block' : 'none';
   document.getElementById('l-err').textContent = '';
+  if (m === 'operador') cargarListaOperadoresLogin();
 }
 
 async function doLogin(){
@@ -1454,9 +1462,41 @@ async function doLogin(){
   }
 }
 
+/* Carga lista de operadores activos desde Firestore en el login */
+async function cargarListaOperadoresLogin(){
+  const sel   = document.getElementById('l-nombre-sel');
+  const aviso = document.getElementById('l-op-vacio');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Cargando…</option>';
+  let intentos = 0;
+  while (!window._FB && intentos < 30){ await new Promise(r=>setTimeout(r,200)); intentos++; }
+  if (!window._FB){
+    sel.innerHTML = '<option value="">Firebase no disponible</option>';
+    return;
+  }
+  try {
+    const snap = await _FB.getDocs(_FB.collection(_FB.db,'operadores'));
+    const ops  = snap.docs
+      .map(d => ({id:d.id, ...d.data()}))
+      .filter(o => o.estado === 'activo' || !o.estado)
+      .sort((a,b) => (a.nombre||'').localeCompare(b.nombre||''));
+    if (!ops.length){
+      sel.innerHTML = '<option value="">Sin operadores registrados</option>';
+      if (aviso) aviso.style.display = 'flex';
+      return;
+    }
+    if (aviso) aviso.style.display = 'none';
+    sel.innerHTML = '<option value="">— Selecciona tu nombre —</option>' +
+      ops.map(o => `<option value="${o.nombre}">${o.nombre}${o.rol?' · '+o.rol:''}</option>`).join('');
+  } catch(e){
+    sel.innerHTML = '<option value="">Error al cargar operadores</option>';
+  }
+}
+
 async function doLoginOp(){
-  const n = document.getElementById('l-nombre').value.trim();
-  if (!n){ toast('Ingresa tu nombre','warn'); return; }
+  const sel = document.getElementById('l-nombre-sel');
+  const n   = sel?.value?.trim();
+  if (!n){ toast('Selecciona tu nombre de la lista','warn'); return; }
   S.nombre  = n;
   S.rol     = 'operador';
   S.isAdmin = false;
@@ -1466,7 +1506,6 @@ async function doLoginOp(){
   hideLogin();
   waitFB(async () => {
     await cargarDatos();
-    /* Buscar o crear registro del operador en Firestore */
     await resolverOpId(n);
   });
 }
@@ -1519,10 +1558,12 @@ async function doLogout(){
 function hideLogin(){ document.getElementById('loginscr').style.display = 'none'; }
 function showLogin(){
   document.getElementById('loginscr').style.display = 'flex';
-  ['l-email','l-pass','l-nombre'].forEach(id => {
+  ['l-email','l-pass'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  const sel = document.getElementById('l-nombre-sel');
+  if (sel) sel.selectedIndex = 0;
   document.getElementById('l-err').textContent = '';
   const btn = document.getElementById('btn-login');
   if (btn){ btn.disabled = false; btn.innerHTML = '<i class="ti ti-login"></i>Ingresar al sistema'; }
@@ -1867,8 +1908,8 @@ function urgBadge(u){
   return `<span class="urg ${m[u]||'urg-baja'}">${lbl[u]||u||'—'}</span>`;
 }
 function tipoBadge(t){
-  const m = { checkin:'tt-checkin', conteo:'tt-conteo', otro:'tt-otro' };
-  const lbl = { checkin:'Check-In', conteo:'Conteo', otro:'Otro' };
+  const m   = { checkin:'tt-checkin', conteo:'tt-conteo', dirigido:'tt-dirigido', otro:'tt-otro' };
+  const lbl = { checkin:'Check-In', conteo:'Conteo Cruzado', dirigido:'Conteo Dirigido', otro:'Otro' };
   return `<span class="ttype ${m[t]||'tt-otro'}">${lbl[t]||t||'—'}</span>`;
 }
 function estBadge(e){
@@ -2226,9 +2267,9 @@ function renderMisTareas(){
 
 function botonAccionTarea(t){
   if (t.estatus === 'completada') return '';
-  const icons = { checkin:'ti-scan', conteo:'ti-clipboard-list', otro:'ti-notes' };
-  const labels = { checkin:'Abrir Check-In', conteo:'Abrir Conteo', otro:'Ver detalles' };
-  const pages  = { checkin:'checkin', conteo:'conteo', otro:'' };
+  const icons  = { checkin:'ti-scan', conteo:'ti-clipboard-list', dirigido:'ti-route', otro:'ti-notes' };
+  const labels = { checkin:'Abrir Check-In', conteo:'Abrir Conteo Cruzado', dirigido:'Abrir Conteo Dirigido', otro:'Ver detalles' };
+  const pages  = { checkin:'checkin', conteo:'conteo', dirigido:'conteo', otro:'' };
   const page   = pages[t.tipo];
   if (!page) return '';
   return `
@@ -2240,38 +2281,30 @@ function botonAccionTarea(t){
 }
 
 function abrirTareaDesdeOp(id, tipo, titulo, clienteId, ubicacion, estatus){
-  /* Marcar como "en proceso" si estaba pendiente */
   if (estatus === 'pendiente') cambiarEstatus(id, 'proceso');
 
-  /* Pre-cargar contexto de la tarea en el módulo */
   if (tipo === 'checkin'){
     const info = document.getElementById('checkin-tarea-info');
     const txt  = document.getElementById('checkin-tarea-txt');
     if (info) info.style.display = 'flex';
     if (txt)  txt.textContent = `Tarea asignada: "${titulo}"`;
     if (clienteId){
-      setTimeout(() => {
-        const sel = document.getElementById('ci-cli');
-        if (sel) sel.value = clienteId;
-      }, 300);
+      setTimeout(() => { const sel=document.getElementById('ci-cli'); if(sel) sel.value=clienteId; }, 300);
     }
     navTo('checkin');
-  } else if (tipo === 'conteo'){
+
+  } else if (tipo === 'conteo' || tipo === 'dirigido'){
     const info = document.getElementById('conteo-tarea-info');
     const txt  = document.getElementById('conteo-tarea-txt');
     if (info) info.style.display = 'flex';
-    if (txt)  txt.textContent = `Tarea asignada: "${titulo}"`;
+    if (txt)  txt.textContent = tipo === 'dirigido'
+      ? `Conteo Dirigido asignado: "${titulo}"`
+      : `Conteo Cruzado asignado: "${titulo}"`;
     if (clienteId){
-      setTimeout(() => {
-        const sel = document.getElementById('cnt-cli');
-        if (sel) sel.value = clienteId;
-      }, 300);
+      setTimeout(() => { const sel=document.getElementById('cnt-cli'); if(sel) sel.value=clienteId; }, 300);
     }
     if (ubicacion){
-      setTimeout(() => {
-        const ubEl = document.getElementById('cnt-ubic');
-        if (ubEl) ubEl.value = ubicacion;
-      }, 300);
+      setTimeout(() => { const el=document.getElementById('cnt-ubic'); if(el) el.value=ubicacion; }, 300);
     }
     navTo('conteo');
   }
