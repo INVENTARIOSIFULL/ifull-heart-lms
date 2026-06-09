@@ -35,14 +35,13 @@ import {
   getStorage, ref as sRef, uploadString, getDownloadURL, deleteObject
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 
-/* ── REEMPLAZA ESTOS VALORES ── */
-const FIREBASE_CONFIG = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT.firebaseapp.com",
-  projectId:         "YOUR_PROJECT_ID",
-  storageBucket:     "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId:             "YOUR_APP_ID"
+const firebaseConfig = {
+  apiKey: "AIzaSyArck5z76FtNzR7BoAgdq-yWLjU9YUcBvY",
+  authDomain: "ifull-heart-lms.firebaseapp.com",
+  projectId: "ifull-heart-lms",
+  storageBucket: "ifull-heart-lms.firebasestorage.app",
+  messagingSenderId: "445033704847",
+  appId: "1:445033704847:web:142736aa6e92d8e58c2ffa"
 };
 
 const app  = initializeApp(FIREBASE_CONFIG);
