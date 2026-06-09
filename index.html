@@ -24,7 +24,8 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import {
   getAuth, signInWithEmailAndPassword, signOut,
-  onAuthStateChanged, createUserWithEmailAndPassword, updateProfile
+  onAuthStateChanged, createUserWithEmailAndPassword, updateProfile,
+  signInAnonymously
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
   getStorage, ref as sRef, uploadString, getDownloadURL
@@ -38,7 +39,6 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "445033704847",
   appId: "1:445033704847:web:142736aa6e92d8e58c2ffa"
 };
-  
 const app  = initializeApp(FIREBASE_CONFIG);
 const db   = getFirestore(app);
 const auth = getAuth(app);
@@ -50,7 +50,7 @@ window._FB = {
   setDoc, addDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, onSnapshot, serverTimestamp,
   signInWithEmailAndPassword, signOut, onAuthStateChanged,
-  createUserWithEmailAndPassword, updateProfile,
+  createUserWithEmailAndPassword, updateProfile, signInAnonymously,
   sRef, uploadString, getDownloadURL,
 };
 
@@ -1401,6 +1401,15 @@ function waitFB(fn, n=0){
 ══════════════════════════════ */
 window.LMS = {
   onFBUser(user){
+    /* Usuario anónimo = operador que ya hizo doLoginOp()
+       Solo procesamos aquí si es admin (tiene email) */
+    if (user.isAnonymous) {
+      /* El operador ya tiene S.nombre y S.rol seteados desde doLoginOp.
+         Solo actualizamos el UID para que Firestore lo reconozca */
+      S.uid = user.uid;
+      return;
+    }
+    /* Admin con email/password */
     S.uid     = user.uid;
     S.nombre  = user.displayName || user.email?.split('@')[0] || 'Admin';
     S.rol     = 'admin';
@@ -1497,6 +1506,24 @@ async function doLoginOp(){
   const sel = document.getElementById('l-nombre-sel');
   const n   = sel?.value?.trim();
   if (!n){ toast('Selecciona tu nombre de la lista','warn'); return; }
+
+  /* Deshabilitar botón mientras autenticamos */
+  const btn = document.querySelector('#area-op .btn-o');
+  if (btn){ btn.disabled = true; btn.innerHTML = '<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Ingresando…'; }
+
+  try {
+    /* Autenticación anónima — da UID real a Firebase Auth
+       para que las Firestore Security Rules funcionen */
+    if (window._FB) {
+      await _FB.signInAnonymously(_FB.auth);
+      /* onAuthStateChanged disparará onFBUser, pero como es anónimo
+         lo manejamos aquí directamente sin esperar el callback */
+    }
+  } catch(e) {
+    console.warn('Anonymous auth falló:', e.message);
+    /* Continuar de todas formas — las reglas abiertas lo permiten */
+  }
+
   S.nombre  = n;
   S.rol     = 'operador';
   S.isAdmin = false;
@@ -1504,6 +1531,7 @@ async function doLoginOp(){
   ss('ifl_nombre', n);
   aplicarRol();
   hideLogin();
+  if (btn){ btn.disabled = false; }
   waitFB(async () => {
     await cargarDatos();
     await resolverOpId(n);
