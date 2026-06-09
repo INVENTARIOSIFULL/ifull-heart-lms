@@ -39,6 +39,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "445033704847",
   appId: "1:445033704847:web:142736aa6e92d8e58c2ffa"
 };
+
 const app  = initializeApp(FIREBASE_CONFIG);
 const db   = getFirestore(app);
 const auth = getAuth(app);
@@ -1580,6 +1581,7 @@ async function doLogout(){
     clientes:[], skus:[], ubicaciones:[], operadores:[], tareas:[],
   });
   if (S.monitorUnsub){ S.monitorUnsub(); S.monitorUnsub = null; }
+  desuscribirTareas();
   showLogin();
 }
 
@@ -1751,6 +1753,9 @@ async function cargarDatos(){
   renderUbicaciones();
   renderRack();
   actualizarBadgeTareas();
+
+  /* Listener en tiempo real para tareas */
+  suscribirTareas();
 
   /* SKUs en background */
   fsGet('skus').then(skus => {
@@ -2167,13 +2172,49 @@ async function guardarTarea(){
 async function cambiarEstatus(id, estatus){
   try {
     await fsUpd(`tareas/${id}`, { estatus });
-    const idx = S.tareas.findIndex(t => t.id === id);
-    if (idx >= 0) S.tareas[idx].estatus = estatus;
+
+    /* Actualizar contador de tareas del operador en Firestore */
+    if (estatus === 'completada') {
+      const tarea = S.tareas.find(t => t.id === id);
+      if (tarea?.asignados?.length) {
+        for (const nombreOp of tarea.asignados) {
+          const op = S.operadores.find(o => o.nombre === nombreOp);
+          if (op?.id) {
+            const activas    = Math.max(0, (op.tareasActivas||0) - 1);
+            const completadas = (op.tareasCompletadas||0) + 1;
+            await fsUpd(`operadores/${op.id}`, { tareasActivas: activas, tareasCompletadas: completadas });
+            op.tareasActivas     = activas;
+            op.tareasCompletadas = completadas;
+          }
+        }
+      }
+    } else if (estatus === 'proceso') {
+      const tarea = S.tareas.find(t => t.id === id);
+      /* Solo incrementar si venía de pendiente */
+      if (tarea?.estatus === 'pendiente' && tarea?.asignados?.length) {
+        for (const nombreOp of tarea.asignados) {
+          const op = S.operadores.find(o => o.nombre === nombreOp);
+          if (op?.id) {
+            const activas = (op.tareasActivas||0) + 1;
+            await fsUpd(`operadores/${op.id}`, { tareasActivas: activas });
+            op.tareasActivas = activas;
+          }
+        }
+      }
+    }
+
+    /* Recargar tareas desde Firestore para que admin y operador estén sincronizados */
+    const todasFrescas = await fsGet('tareas');
+    S.tareas = todasFrescas;
+
     renderTareasAdmin();
     renderDashboard();
     actualizarBadgeTareas();
-    if (!S.isAdmin) await cargarMisTareas();
-    toast(`Estatus → ${estatus}`,'success');
+    if (!S.isAdmin) {
+      renderMisTareas();
+      actualizarBadgeMis();
+    }
+    toast(`Estatus actualizado → ${estatus}`, 'success');
   } catch(e){ toast('Error: '+e.message,'error'); }
 }
 
@@ -2662,6 +2703,17 @@ async function enviarConteo(){
     });
     toast('Conteo registrado en Firestore','success');
     await cruzarConteos(S.sesionActiva, ubic);
+
+    /* Marcar tarea asignada como completada si existe */
+    const tareaAsignada = S.tareas.find(t =>
+      (t.tipo === 'conteo' || t.tipo === 'dirigido') &&
+      (t.asignados||[]).includes(S.nombre) &&
+      (t.estatus === 'proceso' || t.estatus === 'pendiente')
+    );
+    if (tareaAsignada) {
+      await cambiarEstatus(tareaAsignada.id, 'completada');
+    }
+
     S.cItems = [];
     renderCItems();
     renderConteoList();
@@ -2858,6 +2910,18 @@ async function finalizarCI(){
       po:S.ci.po, clienteId:S.ci.clienteId, proveedor:S.ci.proveedor,
       fecha:S.ci.fecha, usuario:S.nombre, validado:false, pallets,
     });
+
+    /* Si el operador llegó desde una tarea asignada, marcarla completada */
+    const tareaAsignada = S.tareas.find(t =>
+      t.tipo === 'checkin' &&
+      (t.asignados||[]).includes(S.nombre) &&
+      (t.estatus === 'proceso' || t.estatus === 'pendiente') &&
+      (String(t.clienteId) === String(S.ci.clienteId) || !t.clienteId)
+    );
+    if (tareaAsignada) {
+      await cambiarEstatus(tareaAsignada.id, 'completada');
+    }
+
     toast('Check-in guardado en Firebase','success');
     ciGoto(2);
   } catch(e){ toast('Error: '+e.message,'error'); }
@@ -3096,6 +3160,28 @@ function suscribirMonitor(){
   S.monitorUnsub = _FB.onSnapshot(q, () => cargarMonitor());
 }
 function desuscribirMonitor(){ if(S.monitorUnsub){ S.monitorUnsub(); S.monitorUnsub=null; } }
+
+/* Listener en tiempo real para tareas — mantiene dashboard y panel admin sincronizados */
+let tareasUnsub = null;
+function suscribirTareas(){
+  if (!window._FB || tareasUnsub) return;
+  tareasUnsub = _FB.onSnapshot(
+    _FB.collection(_FB.db, 'tareas'),
+    snap => {
+      S.tareas = snap.docs.map(d => ({id:d.id, ...d.data()}));
+      actualizarBadgeTareas();
+      renderDashboard();
+      /* Si admin está en panel tareas, re-renderizar */
+      if (document.querySelector('#page-tareas-admin.active')) renderTareasAdmin();
+      /* Si operador está en mis tareas, re-renderizar */
+      if (document.querySelector('#page-mis-tareas.active') && !S.isAdmin) {
+        renderMisTareas();
+        actualizarBadgeMis();
+      }
+    }
+  );
+}
+function desuscribirTareas(){ if(tareasUnsub){ tareasUnsub(); tareasUnsub=null; } }
 
 function expAdmConteo(){
   fsGet('conteos').then(c => {
