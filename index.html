@@ -2691,33 +2691,64 @@ async function enviarConteo(){
   if (!S.cItems.length) { toast('Agrega al menos un ítem','warn'); return; }
 
   const docId = `${S.sesionActiva}-${ubic}-EQ${S.equipo}`;
+
+  /* Botón de carga visual */
+  const btnEnv = document.querySelector('#page-conteo .btn-ok');
+  if (btnEnv){ btnEnv.disabled=true; btnEnv.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Guardando…'; }
+
   try {
+    /* 1 — Guardar conteo */
+    toast('Guardando conteo…','info');
     await fsSet(`conteos/${docId}`,{
       sesionId:  S.sesionActiva,
-      equipo:    S.equipo,
+      equipo:    String(S.equipo),
       usuario:   S.nombre,
       ubicacion: ubic,
       fecha:     new Date().toISOString(),
       items:     S.cItems.map(i => ({ sku:i.sku.trim().toLowerCase(), cantidad:Number(i.qty)||0 })),
-      estado:    'pendiente',
+      estado:    'registrado',
     });
-    toast('Conteo registrado en Firestore','success');
+    toast('✅ Conteo guardado en Firestore','success');
+
+    /* 2 — Cruzar conteos */
     await cruzarConteos(S.sesionActiva, ubic);
 
-    /* Marcar tarea asignada como completada si existe */
-    const tareaAsignada = S.tareas.find(t =>
+    /* 3 — Buscar tarea asignada DIRECTO de Firestore (no de cache) */
+    const todasTareas = await fsGet('tareas');
+    S.tareas = todasTareas;
+
+    const tareaAsignada = todasTareas.find(t =>
       (t.tipo === 'conteo' || t.tipo === 'dirigido') &&
-      (t.asignados||[]).includes(S.nombre) &&
+      (t.asignados||[]).some(a => a.toLowerCase() === S.nombre.toLowerCase()) &&
       (t.estatus === 'proceso' || t.estatus === 'pendiente')
     );
+
     if (tareaAsignada) {
-      await cambiarEstatus(tareaAsignada.id, 'completada');
+      toast(`Marcando tarea "${tareaAsignada.titulo}" como completada…`,'info');
+      await fsUpd(`tareas/${tareaAsignada.id}`, { estatus:'completada' });
+
+      /* Actualizar contadores del operador */
+      const op = S.operadores.find(o => o.nombre?.toLowerCase() === S.nombre.toLowerCase());
+      if (op?.id) {
+        await fsUpd(`operadores/${op.id}`, {
+          tareasActivas:     Math.max(0,(op.tareasActivas||0)-1),
+          tareasCompletadas: (op.tareasCompletadas||0)+1,
+        });
+      }
+      toast('✅ Tarea marcada como completada','success');
+    } else {
+      toast('Conteo enviado. Sin tarea asignada pendiente.','info');
     }
 
     S.cItems = [];
     renderCItems();
     renderConteoList();
-  } catch(e){ toast('Error: '+e.message,'error'); }
+
+  } catch(e){
+    toast('❌ Error: '+e.message,'error');
+  } finally {
+    if (btnEnv){ btnEnv.disabled=false; btnEnv.innerHTML='<i class="ti ti-check"></i>Finalizar y enviar conteo'; }
+  }
 }
 
 async function cruzarConteos(sid, ubic){
@@ -2899,32 +2930,57 @@ function addPallet(){
 async function finalizarCI(){
   const validos = S.ci.items.filter(i => i.sku);
   if (!validos.length){ toast('Agrega al menos un SKU al pallet actual','warn'); return; }
+
+  const btnCI = document.querySelector('#ci-s1 .btn-ok');
+  if (btnCI){ btnCI.disabled=true; btnCI.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Guardando…'; }
+
   S.ci.pallets.push({pallet:S.ci.pallet, items:[...S.ci.items]});
   const ciId = `CI-${S.ci.po}-${Date.now()}`;
   const pallets = S.ci.pallets.map(p => ({
     pallet: p.pallet,
     items:  p.items.filter(i=>i.sku).map(i=>({sku:i.sku, desc:i.desc, barcode:i.barcode, qty:i.qty})),
   }));
+
   try {
+    /* 1 — Guardar check-in */
+    toast('Guardando check-in…','info');
     await fsSet(`checkins/${ciId}`,{
       po:S.ci.po, clienteId:S.ci.clienteId, proveedor:S.ci.proveedor,
       fecha:S.ci.fecha, usuario:S.nombre, validado:false, pallets,
     });
+    toast('✅ Check-in guardado en Firebase','success');
 
-    /* Si el operador llegó desde una tarea asignada, marcarla completada */
-    const tareaAsignada = S.tareas.find(t =>
+    /* 2 — Buscar tarea asignada DIRECTO de Firestore */
+    const todasTareas = await fsGet('tareas');
+    S.tareas = todasTareas;
+
+    const tareaAsignada = todasTareas.find(t =>
       t.tipo === 'checkin' &&
-      (t.asignados||[]).includes(S.nombre) &&
-      (t.estatus === 'proceso' || t.estatus === 'pendiente') &&
-      (String(t.clienteId) === String(S.ci.clienteId) || !t.clienteId)
+      (t.asignados||[]).some(a => a.toLowerCase() === S.nombre.toLowerCase()) &&
+      (t.estatus === 'proceso' || t.estatus === 'pendiente')
     );
+
     if (tareaAsignada) {
-      await cambiarEstatus(tareaAsignada.id, 'completada');
+      toast(`Marcando tarea "${tareaAsignada.titulo}" como completada…`,'info');
+      await fsUpd(`tareas/${tareaAsignada.id}`, { estatus:'completada' });
+
+      /* Actualizar contadores del operador */
+      const op = S.operadores.find(o => o.nombre?.toLowerCase() === S.nombre.toLowerCase());
+      if (op?.id) {
+        await fsUpd(`operadores/${op.id}`, {
+          tareasActivas:     Math.max(0,(op.tareasActivas||0)-1),
+          tareasCompletadas: (op.tareasCompletadas||0)+1,
+        });
+      }
+      toast('✅ Tarea marcada como completada','success');
     }
 
-    toast('Check-in guardado en Firebase','success');
     ciGoto(2);
-  } catch(e){ toast('Error: '+e.message,'error'); }
+  } catch(e){
+    toast('❌ Error: '+e.message,'error');
+  } finally {
+    if (btnCI){ btnCI.disabled=false; btnCI.innerHTML='<i class="ti ti-check"></i>Finalizar → Generar QR'; }
+  }
 }
 
 function nuevoCI(){
