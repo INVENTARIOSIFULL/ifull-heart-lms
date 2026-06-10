@@ -92,7 +92,7 @@ code{font-family:var(--mono);}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
 
-.app{display:flex;height:100vh;overflow:hidden;}
+.app{display:flex;height:100vh;height:100dvh;overflow:hidden;}
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
 .content{flex:1;overflow-y:auto;padding:22px 24px;background:var(--bg);}
 .page{display:none;animation:pgIn .18s ease;}
@@ -256,7 +256,7 @@ textarea.fc{resize:vertical;min-height:80px;}
 .rc.sel{border:2px solid var(--orange);box-shadow:0 0 0 3px rgba(244,121,32,.15);}
 
 .qrbox{display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px;background:var(--bg3);border-radius:var(--rl);border:1px solid var(--border);}
-canvas{border-radius:var(--r);border:4px solid #fff;box-shadow:var(--shm);}
+canvas{border-radius:var(--r);border:4px solid #fff;box-shadow:var(--shm);background:#fff;}
 .scanzone{border:2px dashed var(--border2);border-radius:var(--rl);padding:18px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:border-color .12s,background .12s;}
 .scanzone:hover{border-color:var(--orange);background:var(--orange-l);}
 .fotozone{border:1px dashed var(--border2);border-radius:var(--r);padding:14px;text-align:center;cursor:pointer;transition:all .12s;margin-top:8px;}
@@ -475,6 +475,11 @@ body.role-operador .adm{display:none!important;}
       <button class="clpbtn" onclick="toggleSidebar()" aria-label="Menú"><i class="ti ti-menu-2"></i></button>
       <div class="tbtitle" id="ptitle">Dashboard</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span class="adm"><select class="fc" id="sel-almacen" style="width:auto;padding:5px 8px;font-size:11px;" onchange="setAlmacen()">
+          <option value="">🏭 Todos los almacenes</option>
+          <option value="TEXCOCO">🏭 TEXCOCO</option>
+          <option value="BREA">🏭 BREA</option>
+        </select></span>
         <span class="spill" id="pill-fb"><span class="ldot"></span><span id="fb-txt">Firebase</span></span>
         <span class="spill adm" id="pill-od"><span class="ldot"></span><span id="od-txt">Odoo</span></span>
         <button class="btn btn-sm btn-p adm" onclick="syncOdoo()" id="btn-sync"><i class="ti ti-refresh"></i>Sync</button>
@@ -533,8 +538,8 @@ body.role-operador .adm{display:none!important;}
           </div>
           <div class="twrap">
             <table>
-              <thead><tr><th>Nombre</th><th>Rol · Turno</th><th>Activas</th><th>Completadas</th><th>Estado</th><th></th></tr></thead>
-              <tbody id="tb-ops"><tr><td colspan="6" style="text-align:center;padding:24px;"><div class="spin"></div></td></tr></tbody>
+              <thead><tr><th>Nombre</th><th>Almacén</th><th>Rol · Turno</th><th>Activas</th><th>Completadas</th><th>Estado</th><th></th></tr></thead>
+              <tbody id="tb-ops"><tr><td colspan="7" style="text-align:center;padding:24px;"><div class="spin"></div></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -778,6 +783,7 @@ body.role-operador .adm{display:none!important;}
               <div class="ctitle"><i class="ti ti-package"></i>Pallet <span id="ci-pn">1</span></div>
               <button class="btn btn-sm" onclick="ciGoto(0)"><i class="ti ti-arrow-left"></i>Atrás</button>
             </div>
+            <div id="ci-pallets-list" style="margin-bottom:12px;"></div>
             <div class="scanzone" id="scan-zone" onclick="activarScanner()">
               <i class="ti ti-scan" style="font-size:28px;color:var(--orange);"></i>
               <div style="font-size:12px;font-weight:600;color:var(--blue);">Toca para escanear código de barras</div>
@@ -863,6 +869,19 @@ body.role-operador .adm{display:none!important;}
           <div><strong>Tiempo real</strong> — Todo lo que registran los operadores aparece aquí automáticamente, sin recargar.</div>
         </div>
 
+        <div class="card" style="margin-bottom:14px;">
+          <div class="chdr" style="margin-bottom:0;">
+            <div class="bgrp">
+              <select id="mon-cli" class="fc" style="width:200px;" onchange="renderMonitor()">
+                <option value="">Todos los clientes</option>
+              </select>
+              <input type="date" id="mon-fecha" class="fc" style="width:155px;" onchange="renderMonitor()">
+              <button class="btn btn-sm" onclick="limpiarFiltrosMonitor()"><i class="ti ti-filter-off"></i>Limpiar filtros</button>
+            </div>
+            <span style="font-size:11px;color:var(--txt2);">Ordenado por fecha — más reciente primero</span>
+          </div>
+        </div>
+
         <div class="card">
           <div class="chdr">
             <div class="ctitle"><i class="ti ti-arrows-cross"></i>Conteos Cruzados</div>
@@ -870,7 +889,7 @@ body.role-operador .adm{display:none!important;}
           </div>
           <div class="twrap">
             <table>
-              <thead><tr><th>Sesión</th><th>Ubicación</th><th>SKU</th><th>Eq.1</th><th>Eq.2</th><th>Eq.3</th><th>Dif.</th><th>Estado</th></tr></thead>
+              <thead><tr><th>Fecha</th><th>Cliente</th><th>Ubicación</th><th>SKU</th><th>Eq.1</th><th>Eq.2</th><th>Eq.3</th><th>Dif.</th><th>Estado</th></tr></thead>
               <tbody id="tb-mon-cruzados"></tbody>
             </table>
           </div>
@@ -882,7 +901,7 @@ body.role-operador .adm{display:none!important;}
           </div>
           <div class="twrap">
             <table>
-              <thead><tr><th>Fecha</th><th>Operador</th><th>Ubicación</th><th>SKU</th><th>Cantidad</th><th>Estado</th><th>Validar</th></tr></thead>
+              <thead><tr><th>Fecha</th><th>Cliente</th><th>Operador</th><th>Ubicación</th><th>SKU</th><th>Cantidad</th><th>Estado</th><th>Validar</th></tr></thead>
               <tbody id="tb-mon-dirigidos"></tbody>
             </table>
           </div>
@@ -952,7 +971,7 @@ body.role-operador .adm{display:none!important;}
       <button class="mclose" onclick="cerrarModal('modal-tarea')" aria-label="Cerrar">×</button>
     </div>
     <input type="hidden" id="tarea-id">
-    <div class="frow c2">
+    <div class="frow c3">
       <div class="fg"><label class="fl">Tipo de tarea</label>
         <select class="fc" id="t-tipo" onchange="toggleCamposTarea()">
           <option value="checkin">Check-In</option>
@@ -965,6 +984,10 @@ body.role-operador .adm{display:none!important;}
           <option value="alta">🔴 Alta</option>
           <option value="media" selected>🟡 Media</option>
           <option value="baja">🟢 Baja</option>
+        </select></div>
+      <div class="fg"><label class="fl">Almacén</label>
+        <select class="fc" id="t-almacen" onchange="refiltrarOpsModal()">
+          <option value="TEXCOCO">TEXCOCO</option><option value="BREA">BREA</option>
         </select></div>
     </div>
     <div class="fg"><label class="fl">Título</label>
@@ -1009,7 +1032,11 @@ body.role-operador .adm{display:none!important;}
       <div class="fg"><label class="fl">Nombre completo</label><input class="fc" id="op-nombre" placeholder="Carlos Martínez"></div>
       <div class="fg"><label class="fl">Rol en la empresa</label><input class="fc" id="op-rol" placeholder="Auxiliar de Inventarios"></div>
     </div>
-    <div class="frow c2">
+    <div class="frow c3">
+      <div class="fg"><label class="fl">Almacén</label>
+        <select class="fc" id="op-almacen">
+          <option value="TEXCOCO">TEXCOCO</option><option value="BREA">BREA</option>
+        </select></div>
       <div class="fg"><label class="fl">Turno</label>
         <select class="fc" id="op-turno">
           <option value="matutino">Matutino</option><option value="vespertino">Vespertino</option><option value="nocturno">Nocturno</option>
@@ -1038,6 +1065,10 @@ body.role-operador .adm{display:none!important;}
 /* ══════════ ESTADO GLOBAL ══════════ */
 const S = {
   rol:null, nombre:null, uid:null, isAdmin:false, opId:null,
+
+  /* Almacén del operador logueado y filtro global del admin */
+  almacen:null,
+  almacenFiltro: localStorage.getItem('ifl_almacen')||'',
 
   /* Tarea que el operador abrió desde "Mis Tareas" —
      al finalizar el módulo se completa ESTA tarea exacta */
@@ -1160,10 +1191,28 @@ async function cargarListaOperadoresLogin(){
     }
     if (aviso) aviso.style.display='none';
     sel.innerHTML='<option value="">— Selecciona tu nombre —</option>'+
-      ops.map(o=>`<option value="${o.nombre}">${o.nombre}${o.rol?' · '+o.rol:''}</option>`).join('');
+      ops.map(o=>`<option value="${o.nombre}">${o.nombre}${o.almacen?' · '+o.almacen:''}${o.rol?' · '+o.rol:''}</option>`).join('');
   } catch(e){
     sel.innerHTML='<option value="">Error al cargar operadores</option>';
   }
+}
+
+/* ══════════ ALMACÉN — filtro global ══════════ */
+function setAlmacen(){
+  const sel=document.getElementById('sel-almacen');
+  S.almacenFiltro=sel?.value||'';
+  localStorage.setItem('ifl_almacen',S.almacenFiltro);
+  toast(S.almacenFiltro?`Mostrando almacén: ${S.almacenFiltro}`:'Mostrando todos los almacenes','info');
+  renderDashboard(); renderTareasAdmin(); renderOperadores(); renderMonitor();
+  actualizarBadges();
+}
+
+/* ¿El registro x pertenece al almacén filtrado? (admin)
+   Para operadores siempre true: ya ven solo lo suyo por nombre */
+function enAlmacen(x){
+  if (!S.isAdmin) return true;
+  if (!S.almacenFiltro) return true;
+  return (x.almacen||'')===S.almacenFiltro;
 }
 
 async function doLoginOp(){
@@ -1190,10 +1239,10 @@ async function doLoginOp(){
 async function resolverOpId(nombre){
   const todos=await fsGet('operadores');
   const found=todos.find(o=>o.nombre?.toLowerCase()===nombre.toLowerCase());
-  if (found){ S.opId=found.id; }
+  if (found){ S.opId=found.id; S.almacen=found.almacen||''; }
   else {
-    const id=await fsAdd('operadores',{nombre,rol:'Operador',turno:'matutino',estado:'activo',notas:'',tareasActivas:0,tareasCompletadas:0});
-    S.opId=id;
+    const id=await fsAdd('operadores',{nombre,rol:'Operador',turno:'matutino',estado:'activo',almacen:'TEXCOCO',notas:'',tareasActivas:0,tareasCompletadas:0});
+    S.opId=id; S.almacen='TEXCOCO';
   }
   renderMisTareas();
   actualizarBadges();
@@ -1416,24 +1465,27 @@ function tsToFecha(t){
 
 /* ══════════ DASHBOARD ══════════ */
 function renderDashboard(){
-  const activas=S.tareas.filter(t=>t.estatus==='pendiente'||t.estatus==='proceso').length;
-  const alta=S.tareas.filter(t=>t.urgencia==='alta'&&t.estatus!=='completada').length;
-  const conteosHoy=S.conteos.filter(c=>esHoy(c.fecha)).length;
-  const checkinsHoy=S.checkins.filter(c=>esHoy(c.creado||c.fecha)).length;
-  const compHoy=S.tareas.filter(t=>t.estatus==='completada'&&esHoy(t.completadaEn)).length;
+  const tareasF=S.tareas.filter(enAlmacen);
+  const conteosF=S.conteos.filter(enAlmacen);
+  const checkinsF=S.checkins.filter(enAlmacen);
+  const activas=tareasF.filter(t=>t.estatus==='pendiente'||t.estatus==='proceso').length;
+  const alta=tareasF.filter(t=>t.urgencia==='alta'&&t.estatus!=='completada').length;
+  const conteosHoy=conteosF.filter(c=>esHoy(c.fecha)).length;
+  const checkinsHoy=checkinsF.filter(c=>esHoy(c.creado||c.fecha)).length;
+  const compHoy=tareasF.filter(t=>t.estatus==='completada'&&esHoy(t.completadaEn)).length;
 
   const setM=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
   setM('m-tareas',activas);
   setM('m-alta',alta);
   setM('m-conteos',conteosHoy);
   setM('m-checkins',checkinsHoy);
-  setM('m-ops',S.operadores.filter(o=>o.estado==='activo').length);
+  setM('m-ops',S.operadores.filter(o=>o.estado==='activo'&&enAlmacen(o)).length);
   setM('m-comp',compHoy);
 
   /* Tareas por urgencia */
   const el=document.getElementById('dash-tareas-list');
   if (el){
-    const pend=[...S.tareas].filter(t=>t.estatus!=='completada')
+    const pend=[...tareasF].filter(t=>t.estatus!=='completada')
       .sort((a,b)=>({alta:0,media:1,baja:2}[a.urgencia]??3)-({alta:0,media:1,baja:2}[b.urgencia]??3))
       .slice(0,8);
     el.innerHTML=!pend.length
@@ -1453,10 +1505,10 @@ function renderDashboard(){
   const elAct=document.getElementById('dash-actividad');
   if (elAct){
     const eventos=[
-      ...S.conteos.map(c=>({ tipo:c.modo==='dirigido'?'Conteo dirigido':'Conteo cruzado',
-        det:`${c.ubicacion||'—'} · ${c.usuario||'—'}`, fecha:tsToFecha(c) })),
-      ...S.checkins.map(c=>({ tipo:'Check-In',
-        det:`PO ${c.po||'—'} · ${c.usuario||'—'}`, fecha:tsToFecha(c) })),
+      ...conteosF.map(c=>({ tipo:c.modo==='dirigido'?'Conteo dirigido':'Conteo cruzado',
+        det:`${c.ubicacion||'—'} · ${c.usuario||'—'}${c.almacen?' · '+c.almacen:''}`, fecha:tsToFecha(c) })),
+      ...checkinsF.map(c=>({ tipo:'Check-In',
+        det:`PO ${c.po||'—'} · ${c.usuario||'—'}${c.almacen?' · '+c.almacen:''}`, fecha:tsToFecha(c) })),
     ].filter(e=>e.fecha).sort((a,b)=>b.fecha-a.fecha).slice(0,8);
     elAct.innerHTML=!eventos.length
       ?'<div class="empty"><i class="ti ti-activity"></i><p>Sin actividad aún</p></div>'
@@ -1476,11 +1528,12 @@ function renderDashboard(){
 /* ══════════ OPERADORES ══════════ */
 function renderOperadores(){
   const tb=document.getElementById('tb-ops'); if(!tb) return;
-  if (!S.operadores.length){
-    tb.innerHTML='<tr><td colspan="6"><div class="empty"><i class="ti ti-users"></i><p>Sin operadores. Agrega el primero.</p></div></td></tr>';
+  const ops=S.operadores.filter(enAlmacen);
+  if (!ops.length){
+    tb.innerHTML='<tr><td colspan="7"><div class="empty"><i class="ti ti-users"></i><p>Sin operadores'+(S.almacenFiltro?' en '+S.almacenFiltro:'')+'.</p></div></td></tr>';
     return;
   }
-  tb.innerHTML=S.operadores.map(o=>`
+  tb.innerHTML=ops.map(o=>`
     <tr>
       <td><div style="display:flex;align-items:center;gap:8px;">
         <div style="width:28px;height:28px;border-radius:50%;background:var(--blue-l);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">
@@ -1488,6 +1541,7 @@ function renderOperadores(){
         </div>
         <strong style="font-size:12px;">${o.nombre}</strong>
       </div></td>
+      <td><span class="est ${o.almacen==='BREA'?'est-proceso':'est-pendiente'}">${o.almacen||'—'}</span></td>
       <td style="font-size:12px;color:var(--txt2);">${o.rol||'—'} · ${o.turno||'—'}</td>
       <td style="font-family:var(--mono);">${o.tareasActivas||0}</td>
       <td style="font-family:var(--mono);">${o.tareasCompletadas||0}</td>
@@ -1505,6 +1559,7 @@ function abrirModalOperador(id){
   document.getElementById('op-id').value     =op?.id||'';
   document.getElementById('op-nombre').value =op?.nombre||'';
   document.getElementById('op-rol').value    =op?.rol||'';
+  document.getElementById('op-almacen').value=op?.almacen||S.almacenFiltro||'TEXCOCO';
   document.getElementById('op-turno').value  =op?.turno||'matutino';
   document.getElementById('op-estado').value =op?.estado||'activo';
   document.getElementById('op-notas').value  =op?.notas||'';
@@ -1514,6 +1569,7 @@ function abrirModalOperador(id){
 async function guardarOperador(){
   const nombre=document.getElementById('op-nombre').value.trim();
   const rol   =document.getElementById('op-rol').value.trim();
+  const almacen=document.getElementById('op-almacen').value;
   const turno =document.getElementById('op-turno').value;
   const estado=document.getElementById('op-estado').value;
   const notas =document.getElementById('op-notas').value.trim();
@@ -1521,18 +1577,16 @@ async function guardarOperador(){
   if (!nombre){ toast('Ingresa el nombre','warn'); return; }
   try {
     if (id){
-      await fsUpd(`operadores/${id}`,{nombre,rol,turno,estado,notas});
+      await fsUpd(`operadores/${id}`,{nombre,rol,almacen,turno,estado,notas});
       toast('Operador actualizado','success');
     } else {
-      /* Evitar duplicados por nombre */
       if (S.operadores.some(o=>o.nombre?.toLowerCase()===nombre.toLowerCase())){
         toast('Ya existe un operador con ese nombre','warn'); return;
       }
-      await fsAdd('operadores',{nombre,rol,turno,estado,notas,tareasActivas:0,tareasCompletadas:0});
-      toast(`Operador "${nombre}" registrado`,'success');
+      await fsAdd('operadores',{nombre,rol,almacen,turno,estado,notas,tareasActivas:0,tareasCompletadas:0});
+      toast(`Operador "${nombre}" registrado en ${almacen}`,'success');
     }
     cerrarModal('modal-operador');
-    /* El listener actualiza la tabla automáticamente */
   } catch(e){ toast('Error: '+e.message,'error'); }
 }
 
@@ -1572,7 +1626,7 @@ function renderTareasAdmin(){
   const urg=document.getElementById('flt-urg')?.value||'';
   const est=document.getElementById('flt-est')?.value||'';
   const opF=document.getElementById('flt-op')?.value||'';
-  let tareas=S.tareas;
+  let tareas=S.tareas.filter(enAlmacen);
   if (urg) tareas=tareas.filter(t=>t.urgencia===urg);
   if (est) tareas=tareas.filter(t=>t.estatus===est);
   if (opF) tareas=tareas.filter(t=>(t.asignados||[]).includes(opF));
@@ -1605,6 +1659,7 @@ function tarjetaKanban(t){
       </div>
       <div class="tcard-meta">
         ${tipoBadge(t.tipo)}
+        ${t.almacen?`<span class="est est-pendiente">${t.almacen}</span>`:''}
         <span style="font-size:10px;color:var(--txt2);"><i class="ti ti-user" style="font-size:11px;"></i> ${ops}</span>
       </div>
       ${t.cliente?`<div style="font-size:10px;color:var(--txt2);">Cliente: ${t.cliente}</div>`:''}
@@ -1661,6 +1716,7 @@ function abrirModalTarea(id){
   document.getElementById('tarea-id').value    =t?.id||'';
   document.getElementById('t-tipo').value      =t?.tipo||'checkin';
   document.getElementById('t-urg').value       =t?.urgencia||'media';
+  document.getElementById('t-almacen').value   =t?.almacen||S.almacenFiltro||'TEXCOCO';
   document.getElementById('t-titulo').value    =t?.titulo||'';
   document.getElementById('t-notas').value     =t?.notas||'';
   document.getElementById('t-ubicacion').value =t?.ubicacion||'';
@@ -1668,6 +1724,15 @@ function abrirModalTarea(id){
   toggleCamposTarea();
   renderOpsCheckboxes(t?.asignados||[]);
   abrirModal('modal-tarea');
+}
+
+function getAsignadosChecked(){
+  return Array.from(document.querySelectorAll('#ops-checkboxes input:checked')).map(i=>i.value);
+}
+
+/* Re-filtra la lista de operadores al cambiar el almacén en el modal */
+function refiltrarOpsModal(){
+  renderOpsCheckboxes(getAsignadosChecked());
 }
 
 function toggleCamposTarea(){
@@ -1678,9 +1743,11 @@ function toggleCamposTarea(){
 
 function renderOpsCheckboxes(asignados){
   const cont=document.getElementById('ops-checkboxes'); if(!cont) return;
-  const activos=S.operadores.filter(o=>o.estado==='activo');
+  const alm=document.getElementById('t-almacen')?.value||'';
+  const activos=S.operadores.filter(o=>
+    (o.estado==='activo') && (!alm || (o.almacen||'')===alm || asignados.includes(o.nombre)));
   if (!activos.length){
-    cont.innerHTML='<p style="font-size:12px;color:var(--txt2);">Sin operadores activos. Agrégalos primero en Gestión → Operadores.</p>';
+    cont.innerHTML=`<p style="font-size:12px;color:var(--txt2);">Sin operadores activos en ${alm||'este almacén'}. Agrégalos primero en Gestión → Operadores.</p>`;
     return;
   }
   cont.innerHTML=activos.map(o=>`
@@ -1688,7 +1755,7 @@ function renderOpsCheckboxes(asignados){
       <input type="checkbox" value="${o.nombre}" ${asignados.includes(o.nombre)?'checked':''}
              style="width:16px;height:16px;accent-color:var(--blue);">
       <span style="font-weight:500;">${o.nombre}</span>
-      <span style="font-size:11px;color:var(--txt2);">${o.rol||''}</span>
+      <span style="font-size:11px;color:var(--txt2);">${o.almacen||''} ${o.rol?'· '+o.rol:''}</span>
     </label>`).join('');
 }
 
@@ -1708,7 +1775,8 @@ async function guardarTarea(){
   const clienteId=cliSel?.value||'';
   const cliente =clienteId?(cliSel.options[cliSel.selectedIndex]?.text||''):'';
   const ubicacion=document.getElementById('t-ubicacion').value.trim().toUpperCase();
-  const asignados=Array.from(document.querySelectorAll('#ops-checkboxes input:checked')).map(i=>i.value);
+  const almacen=document.getElementById('t-almacen').value;
+  const asignados=getAsignadosChecked();
 
   if (!titulo){ toast('Agrega un título','warn'); return; }
   if (!asignados.length){ toast('Asigna al menos un operador','warn'); return; }
@@ -1719,7 +1787,7 @@ async function guardarTarea(){
   const btn=document.getElementById('btn-guardar-tarea');
   if (btn) btn.disabled=true;
 
-  const data={tipo,urgencia,titulo,notas,clienteId,cliente,ubicacion,asignados,creadoPor:S.nombre};
+  const data={tipo,urgencia,titulo,notas,clienteId,cliente,ubicacion,almacen,asignados,creadoPor:S.nombre};
 
   try {
     if (id){
@@ -2077,17 +2145,42 @@ function setModoConteo(){
 async function iniciarSesion(){
   const modo=document.getElementById('cnt-modo')?.value||'cruzado';
   const cli=document.getElementById('cnt-cli')?.value;
-  const eq=document.getElementById('cnt-eq')?.value||'1';
+  let eq=document.getElementById('cnt-eq')?.value||'1';
   if (!cli){ toast('Selecciona un cliente','warn'); return; }
 
   const btn=document.getElementById('btn-iniciar-ses');
   if (btn) btn.disabled=true;
 
-  const sid=`SES-${Date.now()}`;
+  /* ── SESIÓN COMPARTIDA POR TAREA ──
+     Si el operador llegó desde una tarea asignada, el ID de sesión
+     se deriva del ID de la tarea: ambos operadores comparten sesión
+     y el equipo se asigna automático por su orden en la asignación. */
+  let sid;
+  const t=S.tareaActivaId?S.tareas.find(x=>x.id===S.tareaActivaId):null;
+  if (t && (t.tipo==='conteo'||t.tipo==='dirigido')){
+    sid='SES-'+t.id;
+    if (t.tipo==='conteo'){
+      const idx=(t.asignados||[]).findIndex(a=>a.toLowerCase()===S.nombre.toLowerCase());
+      if (idx>=0){
+        eq=String(idx+1);
+        const eqSel=document.getElementById('cnt-eq');
+        if (eqSel) eqSel.value=eq;
+        toast(`Equipo asignado automáticamente: Equipo ${eq}`,'info');
+      }
+    }
+  } else {
+    sid='SES-'+Date.now();
+  }
+
+  const cliNombre=S.clientes.find(c=>String(c.id||c.id_odoo)===String(cli))?.nombre||cli;
+
   try {
     await fsSet(`sesiones/${sid}`,{
-      clienteId:cli, modo, equipo:modo==='cruzado'?eq:'D',
-      usuario:S.nombre, fecha:new Date().toISOString(), estado:'activa',
+      clienteId:cli, cliente:cliNombre, modo,
+      almacen:S.almacen||t?.almacen||'',
+      tareaId:t?.id||'',
+      ['operador_eq'+(modo==='cruzado'?eq:'D')]:S.nombre,
+      fecha:new Date().toISOString(), estado:'activa',
     });
     S.sesionActiva=sid;
     S.modoConteo=modo;
@@ -2101,7 +2194,7 @@ async function iniciarSesion(){
     document.getElementById('val-result').innerHTML=modo==='dirigido'
       ?'Conteo dirigido: tu registro irá directo al administrador para validación.'
       :'Esperando datos de los equipos…';
-    toast(`Sesión ${modo} iniciada`,'success');
+    toast(`Sesión ${modo} iniciada${t?' (vinculada a la tarea)':''}`,'success');
   } catch(e){ toast('Error: '+e.message,'error'); }
   finally { if(btn) btn.disabled=false; }
 }
@@ -2146,7 +2239,10 @@ async function enviarConteo(){
   const btn=document.getElementById('btn-enviar-conteo');
   if (btn){ btn.disabled=true; btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Guardando…'; }
 
+  const cliId=document.getElementById('cnt-cli')?.value||'';
+  const cliNombre=S.clientes.find(c=>String(c.id||c.id_odoo)===String(cliId))?.nombre||cliId;
   const docId=`${S.sesionActiva}-${ubic.replace(/[^A-Z0-9\-]/gi,'_')}-${S.equipo}`;
+
   try {
     /* 1 — Guardar conteo */
     await fsSet(`conteos/${docId}`,{
@@ -2154,6 +2250,9 @@ async function enviarConteo(){
       modo:S.modoConteo,
       equipo:String(S.equipo),
       usuario:S.nombre,
+      clienteId:cliId, cliente:cliNombre,
+      almacen:S.almacen||'',
+      tareaId:S.tareaActivaId||'',
       ubicacion:ubic,
       fecha:new Date().toISOString(),
       items:S.cItems.map(i=>({sku:i.sku.trim().toLowerCase(),cantidad:Number(i.qty)||0})),
@@ -2164,10 +2263,35 @@ async function enviarConteo(){
     /* 2 — Validación cruzada (solo modo cruzado) */
     if (S.modoConteo==='cruzado') await cruzarConteos(S.sesionActiva,ubic);
 
-    /* 3 — Completar tarea activa (ID exacto, fallback heurístico) */
-    /* Refrescar tareas desde Firestore para tener el estado más reciente */
+    /* 3 — Completar tarea: con datos frescos de Firestore */
     S.tareas=await fsGet('tareas');
-    await completarTareaActiva(['conteo','dirigido']);
+    let t=S.tareaActivaId?S.tareas.find(x=>x.id===S.tareaActivaId&&x.estatus!=='completada'):null;
+    if (!t){
+      t=S.tareas.find(x=>(x.tipo==='conteo'||x.tipo==='dirigido') &&
+        (x.asignados||[]).some(a=>a.toLowerCase()===S.nombre.toLowerCase()) &&
+        (x.estatus==='proceso'||x.estatus==='pendiente'));
+    }
+    if (t){
+      if (t.tipo==='conteo' && (t.asignados||[]).length>=2){
+        /* Conteo cruzado: completar SOLO cuando ambos equipos enviaron */
+        const cs=await fsGet('conteos');
+        const equipos=[...new Set(cs.filter(c=>c.sesionId==='SES-'+t.id).map(c=>String(c.equipo)))];
+        if (equipos.length>=2){
+          await cambiarEstatus(t.id,'completada');
+          S.tareaActivaId=null;
+          ocultarBannersTarea();
+          toast(`✅ Tarea "${t.titulo}" completada — ambos equipos terminaron`,'success');
+        } else {
+          toast('Conteo enviado. La tarea se completará cuando el otro equipo termine.','info');
+        }
+      } else {
+        /* Dirigido o conteo de 1 operador: completar de inmediato */
+        await cambiarEstatus(t.id,'completada');
+        S.tareaActivaId=null;
+        ocultarBannersTarea();
+        toast(`✅ Tarea "${t.titulo}" completada`,'success');
+      }
+    }
 
     S.cItems=[];
     renderCItems();
@@ -2177,6 +2301,13 @@ async function enviarConteo(){
   } finally {
     if (btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i>Finalizar y enviar conteo'; }
   }
+}
+
+function ocultarBannersTarea(){
+  const i1=document.getElementById('conteo-tarea-info');
+  const i2=document.getElementById('checkin-tarea-info');
+  if (i1) i1.style.display='none';
+  if (i2) i2.style.display='none';
 }
 
 async function cruzarConteos(sid,ubic){
@@ -2323,8 +2454,8 @@ function ciGoto(s){
     if (sec) sec.style.display=i===s?'block':'none';
     if (st){ st.classList.toggle('active',i===s); st.classList.toggle('done',i<s); }
   });
-  if (s===1) renderCIItems();
-  if (s===2) genQRCI();
+  if (s===1){ renderCIItems(); renderPalletsGuardados(); }
+  if (s===2) setTimeout(genQRCI,150); /* esperar a que el canvas sea visible */
 }
 
 function renderCIItems(){
@@ -2356,6 +2487,36 @@ function procFoto(i,inp){
   r.readAsDataURL(f);
 }
 
+function renderPalletsGuardados(){
+  const el=document.getElementById('ci-pallets-list'); if(!el) return;
+  if (!S.ci.pallets.length){ el.innerHTML=''; return; }
+  el.innerHTML=`
+    <div style="border:1px solid var(--border);border-radius:var(--r);overflow:hidden;">
+      <div style="padding:8px 12px;background:var(--bg3);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt2);">
+        Tarimas registradas: ${S.ci.pallets.length}
+      </div>
+      ${S.ci.pallets.map((p,i)=>{
+        const nSkus=(p.items||[]).filter(x=>x.sku).length;
+        const nUnid=(p.items||[]).reduce((s,x)=>s+Number(x.qty||0),0);
+        return `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--border);">
+          <span class="est est-completada">Pallet ${p.pallet}</span>
+          <span style="font-size:11px;color:var(--txt2);flex:1;">${nSkus} SKUs · ${nUnid.toLocaleString('es-MX')} unidades</span>
+          <button class="btn btn-xs btn-del" onclick="quitarPallet(${i})" aria-label="Eliminar pallet ${p.pallet}"><i class="ti ti-trash"></i></button>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function quitarPallet(i){
+  const p=S.ci.pallets[i];
+  if (!p) return;
+  if (!confirm(`¿Eliminar el pallet ${p.pallet} del registro?`)) return;
+  S.ci.pallets.splice(i,1);
+  renderPalletsGuardados();
+  toast(`Pallet ${p.pallet} eliminado del registro`,'info');
+}
+
 function addPallet(){
   const validos=S.ci.items.filter(i=>i.sku);
   if (!validos.length){ toast('Agrega al menos un SKU antes de pasar al siguiente pallet','warn'); return; }
@@ -2365,7 +2526,8 @@ function addPallet(){
   const el=document.getElementById('ci-pn');
   if (el) el.textContent=S.ci.pallet;
   renderCIItems();
-  toast(`Pallet ${S.ci.pallet-1} guardado. Registra pallet ${S.ci.pallet}.`,'info');
+  renderPalletsGuardados();
+  toast(`✅ Pallet ${S.ci.pallet-1} guardado. Registrando pallet ${S.ci.pallet}…`,'success');
 }
 
 async function finalizarCI(){
@@ -2383,23 +2545,23 @@ async function finalizarCI(){
   }));
 
   try {
-    /* 1 — Guardar check-in */
     await fsSet(`checkins/${ciId}`,{
       po:S.ci.po, clienteId:S.ci.clienteId,
       cliente:S.clientes.find(c=>String(c.id||c.id_odoo)===String(S.ci.clienteId))?.nombre||S.ci.clienteId,
       proveedor:S.ci.proveedor, fecha:S.ci.fecha,
+      almacen:S.almacen||'',
+      tareaId:S.tareaActivaId||'',
       creado:new Date().toISOString(),
       usuario:S.nombre, validado:false, pallets,
     });
     toast('✅ Check-in guardado','success');
 
-    /* 2 — Completar tarea activa */
     S.tareas=await fsGet('tareas');
-    await completarTareaActiva(['checkin']);
+    const completada=await completarTareaActiva(['checkin']);
+    if (completada) ocultarBannersTarea();
 
     ciGoto(2);
   } catch(e){
-    /* revertir el push si falló */
     if (validos.length) S.ci.pallets.pop();
     toast('❌ Error: '+e.message,'error');
   } finally {
@@ -2411,27 +2573,79 @@ function nuevoCI(){
   resetCI();
   ['ci-po','ci-prov'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
   const pn=document.getElementById('ci-pn'); if(pn) pn.textContent='1';
+  renderPalletsGuardados();
   ciGoto(0);
 }
 
 function genQRCI(){
   const cli=S.clientes.find(c=>String(c.id||c.id_odoo)===String(S.ci.clienteId))?.nombre||S.ci.clienteId;
   const totalPallets=S.ci.pallets.length;
-  const totalSkus=S.ci.pallets.reduce((s,p)=>s+(p.items||[]).length,0);
-  const totalUnid=S.ci.pallets.reduce((s,p)=>s+(p.items||[]).reduce((x,i)=>x+Number(i.qty||0),0),0);
-  const data=buildQRData('pallet',{po:S.ci.po,cliente:cli,pallets:totalPallets});
-  const canvas=document.getElementById('qr-ci'); if(!canvas) return;
-  QRCode.toCanvas(canvas,data,{width:200,margin:2,color:{dark:'#0D1526',light:'#FFFFFF'}},()=>{});
+
+  /* Concentrado de SKUs a través de TODAS las tarimas */
+  const concentrado={};
+  S.ci.pallets.forEach(p=>(p.items||[]).filter(i=>i.sku).forEach(i=>{
+    const k=i.sku.trim();
+    if (!concentrado[k]) concentrado[k]={qty:0,desc:i.desc||''};
+    concentrado[k].qty+=Number(i.qty||0);
+  }));
+  const skusUnicos=Object.keys(concentrado).length;
+  const totalUnid=Object.values(concentrado).reduce((s,x)=>s+x.qty,0);
+
+  /* QR compacto (texto corto = QR legible) */
+  const data=JSON.stringify({
+    t:'checkin', po:S.ci.po||'', cli:String(cli).substring(0,30),
+    pal:totalPallets, sk:skusUnicos, un:totalUnid,
+    f:new Date().toISOString().split('T')[0],
+  });
+
+  const canvas=document.getElementById('qr-ci');
+  if (canvas){
+    QRCode.toCanvas(canvas,data,{width:200,margin:2,color:{dark:'#0D1526',light:'#FFFFFF'}},err=>{
+      if (err){
+        toast('Error generando QR: '+err.message,'error');
+        /* Reintento con texto mínimo */
+        QRCode.toCanvas(canvas,`CI|${S.ci.po}|${totalPallets}P|${totalUnid}U`,{width:200,margin:2},()=>{});
+      }
+    });
+  }
+
   const lbl=document.getElementById('qr-ci-lbl');
-  if (lbl) lbl.textContent=`${S.ci.po} · ${cli} · ${totalPallets} pallets`;
+  if (lbl) lbl.textContent=`${S.ci.po||'—'} · ${cli} · ${totalPallets} tarimas`;
+
+  /* Resumen con tabla concentrada */
   const res=document.getElementById('ci-resumen');
-  if (res) res.innerHTML=
-    `<strong>PO:</strong> ${S.ci.po}<br>
-     <strong>Cliente:</strong> ${cli}<br>
-     <strong>Proveedor:</strong> ${S.ci.proveedor||'—'}<br>
-     <strong>Pallets:</strong> ${totalPallets}<br>
-     <strong>SKUs totales:</strong> ${totalSkus}<br>
-     <strong>Unidades totales:</strong> ${totalUnid.toLocaleString('es-MX')}`;
+  if (res){
+    const filas=Object.entries(concentrado)
+      .sort((a,b)=>b[1].qty-a[1].qty)
+      .map(([sku,d])=>`
+        <tr>
+          <td style="padding:5px 8px;border-bottom:1px solid var(--border);"><code style="font-size:10px;">${sku}</code></td>
+          <td style="padding:5px 8px;border-bottom:1px solid var(--border);font-size:11px;color:var(--txt2);">${d.desc||'—'}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--mono);font-weight:700;">${d.qty.toLocaleString('es-MX')}</td>
+        </tr>`).join('');
+    res.innerHTML=`
+      <div style="margin-bottom:10px;">
+        <strong>PO:</strong> ${S.ci.po||'—'} &nbsp;·&nbsp;
+        <strong>Cliente:</strong> ${cli} &nbsp;·&nbsp;
+        <strong>Proveedor:</strong> ${S.ci.proveedor||'—'}
+      </div>
+      <div style="display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap;">
+        <span class="est est-proceso">${totalPallets} tarimas</span>
+        <span class="est est-proceso">${skusUnicos} SKUs únicos</span>
+        <span class="est est-completada">${totalUnid.toLocaleString('es-MX')} unidades</span>
+      </div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt2);margin-bottom:6px;">Concentrado por SKU (todas las tarimas)</div>
+      <div style="border:1px solid var(--border);border-radius:var(--r);overflow:hidden;max-height:260px;overflow-y:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr style="background:var(--bg3);">
+            <th style="padding:6px 8px;text-align:left;font-size:9px;">SKU</th>
+            <th style="padding:6px 8px;text-align:left;font-size:9px;">DESCRIPCIÓN</th>
+            <th style="padding:6px 8px;text-align:right;font-size:9px;">TOTAL</th>
+          </tr></thead>
+          <tbody>${filas}</tbody>
+        </table>
+      </div>`;
+  }
 }
 
 function expCIExcel(){
@@ -2488,24 +2702,56 @@ function procesarBarcode(cod){
   } else toast('Código capturado: '+clean,'info');
 }
 
-/* ══════════ MONITOR (admin, tiempo real) ══════════ */
+/* ══════════ MONITOR (admin, tiempo real, con filtros) ══════════ */
+function limpiarFiltrosMonitor(){
+  const c=document.getElementById('mon-cli'); if(c) c.value='';
+  const f=document.getElementById('mon-fecha'); if(f) f.value='';
+  renderMonitor();
+}
+
+function filtroMonitor(x){
+  if (!enAlmacen(x)) return false;
+  const cli=document.getElementById('mon-cli')?.value||'';
+  const fec=document.getElementById('mon-fecha')?.value||'';
+  if (cli && String(x.clienteId||'')!==cli && (x.cliente||'')!==cli) return false;
+  if (fec){
+    const f=(x.fecha||x.creado||'').split('T')[0];
+    if (f!==fec) return false;
+  }
+  return true;
+}
+
+function poblarMonCli(){
+  const el=document.getElementById('mon-cli'); if(!el) return;
+  const cur=el.value;
+  el.innerHTML='<option value="">Todos los clientes</option>'+
+    S.clientes.map(c=>`<option value="${c.id||c.id_odoo}">${c.nombre}</option>`).join('');
+  if (cur) el.value=cur;
+}
+
 function renderMonitor(){
-  /* Cruzados agrupados */
+  poblarMonCli();
+
+  /* ── Cruzados: agrupados, ordenados por fecha desc ── */
+  const cruzados=S.conteos.filter(c=>c.modo!=='dirigido'&&filtroMonitor(c));
   const grps={};
-  S.conteos.filter(c=>c.modo!=='dirigido').forEach(c=>{
+  cruzados.forEach(c=>{
     (c.items||[]).forEach(it=>{
       const k=`${c.sesionId}|${c.ubicacion}|${it.sku}`;
-      if (!grps[k]) grps[k]={ses:c.sesionId,ubic:c.ubicacion,sku:it.sku,e1:null,e2:null,e3:null};
+      if (!grps[k]) grps[k]={ses:c.sesionId,fecha:c.fecha||'',cliente:c.cliente||'—',ubic:c.ubicacion,sku:it.sku,e1:null,e2:null,e3:null};
       grps[k]['e'+c.equipo]=it.cantidad;
+      if ((c.fecha||'')>(grps[k].fecha||'')) grps[k].fecha=c.fecha;
+      if (c.cliente && grps[k].cliente==='—') grps[k].cliente=c.cliente;
     });
   });
-  const vals=Object.values(grps);
+  const vals=Object.values(grps).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
   const tb1=document.getElementById('tb-mon-cruzados');
   if (tb1) tb1.innerHTML=vals.length?vals.map(g=>{
     const dif=(g.e1!=null&&g.e2!=null)?Math.abs(g.e1-g.e2):null;
     const estado=g.e1==null||g.e2==null?'parcial':(g.e1===g.e2?'validado':(g.e3!=null?((g.e3===g.e1||g.e3===g.e2)?'validado 3er':'crítico'):'difiere'));
     return `<tr>
-      <td><code style="font-size:9px;">${g.ses}</code></td>
+      <td style="font-size:11px;font-family:var(--mono);">${(g.fecha||'').split('T')[0]||'—'}</td>
+      <td style="font-size:11px;">${g.cliente}</td>
       <td>${g.ubic}</td>
       <td style="font-family:var(--mono);font-size:11px;">${g.sku}</td>
       <td style="font-family:var(--mono);">${g.e1??'—'}</td>
@@ -2514,43 +2760,45 @@ function renderMonitor(){
       <td style="font-family:var(--mono);color:${dif>0?'var(--red)':'var(--green)'};">${dif??'—'}</td>
       <td><span class="est ${estado.startsWith('validado')?'est-completada':estado==='parcial'?'est-pendiente':'est-pausa'}">${estado}</span></td>
     </tr>`;
-  }).join(''):'<tr><td colspan="8"><div class="empty"><i class="ti ti-arrows-cross"></i><p>Sin conteos cruzados</p></div></td></tr>';
+  }).join(''):'<tr><td colspan="9"><div class="empty"><i class="ti ti-arrows-cross"></i><p>Sin conteos cruzados con ese filtro</p></div></td></tr>';
 
-  /* Dirigidos fila a fila */
+  /* ── Dirigidos: ordenados por fecha desc ── */
   const dirRows=[];
-  S.conteos.filter(c=>c.modo==='dirigido').forEach(c=>{
-    (c.items||[]).forEach(it=>dirRows.push({id:c.id,fecha:(c.fecha||'').split('T')[0],usuario:c.usuario,ubic:c.ubicacion,sku:it.sku,qty:it.cantidad,estado:c.estado}));
+  S.conteos.filter(c=>c.modo==='dirigido'&&filtroMonitor(c)).forEach(c=>{
+    (c.items||[]).forEach(it=>dirRows.push({id:c.id,fecha:c.fecha||'',cliente:c.cliente||'—',usuario:c.usuario,ubic:c.ubicacion,sku:it.sku,qty:it.cantidad,estado:c.estado}));
   });
+  dirRows.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
   const tb2=document.getElementById('tb-mon-dirigidos');
   if (tb2) tb2.innerHTML=dirRows.length?dirRows.map(d=>`
     <tr>
-      <td style="font-size:11px;">${d.fecha}</td>
+      <td style="font-size:11px;font-family:var(--mono);">${(d.fecha||'').split('T')[0]||'—'}</td>
+      <td style="font-size:11px;">${d.cliente}</td>
       <td style="font-size:11px;">${d.usuario||'—'}</td>
       <td>${d.ubic}</td>
       <td style="font-family:var(--mono);font-size:11px;">${d.sku}</td>
       <td style="font-family:var(--mono);">${Number(d.qty||0).toLocaleString('es-MX')}</td>
       <td><span class="est ${d.estado==='validado'?'est-completada':'est-pausa'}">${d.estado==='validado'?'validado':'por validar'}</span></td>
       <td>${d.estado!=='validado'?`<button class="btn btn-xs btn-ok" onclick="validarConteoDirigido('${d.id}')"><i class="ti ti-check"></i>Validar</button>`:'—'}</td>
-    </tr>`).join(''):'<tr><td colspan="7"><div class="empty"><i class="ti ti-route"></i><p>Sin conteos dirigidos</p></div></td></tr>';
+    </tr>`).join(''):'<tr><td colspan="8"><div class="empty"><i class="ti ti-route"></i><p>Sin conteos dirigidos con ese filtro</p></div></td></tr>';
 
-  /* Check-ins */
+  /* ── Check-ins: ordenados por fecha desc ── */
+  const cis=S.checkins.filter(filtroMonitor)
+    .sort((a,b)=>((b.creado||b.fecha||'')).localeCompare(a.creado||a.fecha||''));
   const tb3=document.getElementById('tb-mon-ci');
-  if (tb3) tb3.innerHTML=S.checkins.length?[...S.checkins]
-    .sort((a,b)=>(tsToFecha(b)||0)-(tsToFecha(a)||0))
-    .map(c=>{
-      const tp=c.pallets?.length||0;
-      const ts=c.pallets?.reduce((s,p)=>s+(p.items||[]).length,0)||0;
-      return `<tr>
-        <td><strong style="font-family:var(--mono);">${c.po||'—'}</strong></td>
-        <td style="font-size:11px;">${c.cliente||c.clienteId||'—'}</td>
-        <td style="font-size:11px;">${c.usuario||'—'}</td>
-        <td style="font-size:11px;">${(c.fecha||c.creado||'').split('T')[0]}</td>
-        <td style="font-family:var(--mono);">${tp}</td>
-        <td style="font-family:var(--mono);">${ts}</td>
-        <td><span class="est ${c.validado?'est-completada':'est-pausa'}">${c.validado?'Validado':'Pendiente'}</span></td>
-        <td>${!c.validado?`<button class="btn btn-xs btn-ok" onclick="validarCI('${c.id}')"><i class="ti ti-check"></i>Validar</button>`:'—'}</td>
-      </tr>`;
-    }).join(''):'<tr><td colspan="8"><div class="empty"><i class="ti ti-scan"></i><p>Sin check-ins</p></div></td></tr>';
+  if (tb3) tb3.innerHTML=cis.length?cis.map(c=>{
+    const tp=c.pallets?.length||0;
+    const ts=c.pallets?.reduce((s,p)=>s+(p.items||[]).length,0)||0;
+    return `<tr>
+      <td><strong style="font-family:var(--mono);">${c.po||'—'}</strong></td>
+      <td style="font-size:11px;">${c.cliente||c.clienteId||'—'}</td>
+      <td style="font-size:11px;">${c.usuario||'—'}</td>
+      <td style="font-size:11px;font-family:var(--mono);">${(c.fecha||c.creado||'').split('T')[0]}</td>
+      <td style="font-family:var(--mono);">${tp}</td>
+      <td style="font-family:var(--mono);">${ts}</td>
+      <td><span class="est ${c.validado?'est-completada':'est-pausa'}">${c.validado?'Validado':'Pendiente'}</span></td>
+      <td>${!c.validado?`<button class="btn btn-xs btn-ok" onclick="validarCI('${c.id}')"><i class="ti ti-check"></i>Validar</button>`:'—'}</td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="8"><div class="empty"><i class="ti ti-scan"></i><p>Sin check-ins con ese filtro</p></div></td></tr>';
 }
 
 async function validarConteoDirigido(id){
@@ -2720,6 +2968,10 @@ function toast(msg,tipo='info'){
   if (S.odooKey){
     const el=document.getElementById('cfg-apikey'); if(el) el.value=S.odooKey;
   }
+
+  /* Restaurar filtro de almacén del admin */
+  const selAlm=document.getElementById('sel-almacen');
+  if (selAlm) selAlm.value=S.almacenFiltro||'';
 
   /* Restaurar sesión de operador (Firebase Auth restaura admins solo) */
   const r=gs('ifl_rol'), n=gs('ifl_nombre');
