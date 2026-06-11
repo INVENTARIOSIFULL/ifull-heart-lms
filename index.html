@@ -551,18 +551,23 @@ body.role-operador .adm{display:none!important;}
         <div class="card" style="margin-bottom:14px;">
           <div class="chdr" style="margin-bottom:0;">
             <div class="bgrp">
-              <select class="fc" id="flt-urg" style="width:130px;" onchange="renderTareasAdmin()">
+              <select class="fc" id="flt-clitarea" style="width:170px;" onchange="renderTareasAdmin()">
+                <option value="">Todos los clientes</option>
+              </select>
+              <input type="date" class="fc" id="flt-fecha" style="width:150px;" onchange="renderTareasAdmin()">
+              <select class="fc" id="flt-urg" style="width:120px;" onchange="renderTareasAdmin()">
                 <option value="">Toda urgencia</option><option value="alta">Alta</option>
                 <option value="media">Media</option><option value="baja">Baja</option>
               </select>
-              <select class="fc" id="flt-est" style="width:140px;" onchange="renderTareasAdmin()">
+              <select class="fc" id="flt-est" style="width:130px;" onchange="renderTareasAdmin()">
                 <option value="">Todo estatus</option><option value="pendiente">Pendiente</option>
                 <option value="proceso">En proceso</option><option value="pausa">En pausa</option>
                 <option value="completada">Completada</option>
               </select>
-              <select class="fc" id="flt-op" style="width:160px;" onchange="renderTareasAdmin()">
+              <select class="fc" id="flt-op" style="width:150px;" onchange="renderTareasAdmin()">
                 <option value="">Todos los operadores</option>
               </select>
+              <button class="btn btn-sm" onclick="limpiarFiltrosTareas()"><i class="ti ti-filter-off"></i>Ver todo</button>
             </div>
             <div class="bgrp">
               <button class="btn btn-sm" onclick="toggleVistaTareas()" id="btn-vista"><i class="ti ti-table"></i>Tabla</button>
@@ -721,7 +726,7 @@ body.role-operador .adm{display:none!important;}
               <div id="cnt-ubics-reg" style="margin-bottom:10px;"></div>
               <div class="fg"><label class="fl">Ubicación que estás contando</label>
                 <div style="display:flex;gap:8px;">
-                  <input class="fc" id="cnt-ubic" placeholder="Ej: A-03-02" style="flex:1;">
+                  <input class="fc" id="cnt-ubic" placeholder="Ej: A/03/02" style="flex:1;">
                   <button class="btn btn-sm" onclick="abrirScanner('cnt-ubic')" aria-label="Escanear ubicación" title="Escanear con cámara"><i class="ti ti-scan"></i></button>
                 </div></div>
               <div id="c-items-list" style="margin-bottom:10px;"></div>
@@ -857,7 +862,7 @@ body.role-operador .adm{display:none!important;}
             <div class="fg"><label class="fl">Descripción</label><input class="fc" id="qr-desc" placeholder="Descripción" oninput="renderQR()"></div>
             <div class="frow c2">
               <div class="fg"><label class="fl">Cantidad</label><input class="fc" type="number" id="qr-qty" min="0" oninput="renderQR()"></div>
-              <div class="fg"><label class="fl">Ubicación</label><input class="fc" id="qr-loc" placeholder="A-03-02" oninput="renderQR()"></div>
+              <div class="fg"><label class="fl">Ubicación</label><input class="fc" id="qr-loc" placeholder="A/03/02" oninput="renderQR()"></div>
             </div>
           </div>
           <div class="card">
@@ -923,6 +928,7 @@ body.role-operador .adm{display:none!important;}
         <div class="card">
           <div class="chdr">
             <div class="ctitle"><i class="ti ti-route"></i>Conteos Dirigidos</div>
+            <button class="btn btn-sm" onclick="expAdmDirigido()"><i class="ti ti-file-spreadsheet"></i>Excel del día (por cliente)</button>
           </div>
           <div class="twrap">
             <table>
@@ -1023,7 +1029,7 @@ body.role-operador .adm{display:none!important;}
       <div class="fg"><label class="fl">Cliente</label>
         <select class="fc" id="t-cliente"><option value="">Sin cliente específico</option></select></div>
       <div class="fg"><label class="fl">Ubicación</label>
-        <input class="fc" id="t-ubicacion" placeholder="Ej: A-03-02"></div>
+        <input class="fc" id="t-ubicacion" placeholder="Ej: A/03/02"></div>
     </div>
     <div class="fg">
       <label class="fl">Asignar a operador(es)</label>
@@ -1661,18 +1667,36 @@ function ordenarTareas(arr){
   const ou={alta:0,media:1,baja:2}, oe={pendiente:0,proceso:1,pausa:2,completada:3};
   return [...arr].sort((a,b)=>{
     const du=(ou[a.urgencia]??3)-(ou[b.urgencia]??3);
-    return du!==0?du:(oe[a.estatus]??4)-(oe[b.estatus]??4);
+    if (du!==0) return du;
+    const de=(oe[a.estatus]??4)-(oe[b.estatus]??4);
+    if (de!==0) return de;
+    return (b._ts?.seconds||0)-(a._ts?.seconds||0); /* más reciente primero */
   });
+}
+
+function limpiarFiltrosTareas(){
+  ['flt-clitarea','flt-urg','flt-est','flt-op'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  const f=document.getElementById('flt-fecha'); if(f) f.value='';
+  renderTareasAdmin();
 }
 
 function renderTareasAdmin(){
   const urg=document.getElementById('flt-urg')?.value||'';
   const est=document.getElementById('flt-est')?.value||'';
   const opF=document.getElementById('flt-op')?.value||'';
+  const cliF=document.getElementById('flt-clitarea')?.value||'';
+  const fecF=document.getElementById('flt-fecha')?.value||'';
   let tareas=S.tareas.filter(enAlmacen);
   if (urg) tareas=tareas.filter(t=>t.urgencia===urg);
   if (est) tareas=tareas.filter(t=>t.estatus===est);
   if (opF) tareas=tareas.filter(t=>(t.asignados||[]).includes(opF));
+  if (cliF) tareas=tareas.filter(t=>String(t.clienteId||'')===cliF);
+  if (fecF) tareas=tareas.filter(t=>{
+    const d=tsToFecha(t);
+    return d && d.toISOString().split('T')[0]===fecF;
+  });
   tareas=ordenarTareas(tareas);
   if (S.vistaKanban) renderKanban(tareas); else renderTablaTareas(tareas);
 }
@@ -1703,6 +1727,7 @@ function tarjetaKanban(t){
       <div class="tcard-meta">
         ${tipoBadge(t.tipo)}
         ${t.almacen?`<span class="est est-pendiente">${t.almacen}</span>`:''}
+        ${t.requiereTercero&&t.estatus!=='completada'?'<span class="est est-pausa">⚠️ Requiere 3er conteo</span>':''}
         <span style="font-size:10px;color:var(--txt2);"><i class="ti ti-user" style="font-size:11px;"></i> ${ops}</span>
       </div>
       ${t.cliente?`<div style="font-size:10px;color:var(--txt2);">Cliente: ${t.cliente}</div>`:''}
@@ -1950,6 +1975,7 @@ function renderMisTareas(){
       </div>
       <div class="tcard-meta">
         ${tipoBadge(t.tipo)} ${estBadge(t.estatus)}
+        ${t.requiereTercero&&t.estatus!=='completada'?'<span class="est est-pausa">⚠️ Requiere 3er conteo</span>':''}
         ${t.cliente?`<span style="font-size:10px;color:var(--txt2);">Cliente: ${t.cliente}</span>`:''}
         ${t.ubicacion?`<span style="font-size:10px;color:var(--txt2);">Ubic: <code style="font-size:10px;">${t.ubicacion}</code></span>`:''}
       </div>
@@ -2041,10 +2067,10 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
 
 /* ══════════ SELECTORES ══════════ */
 function poblarSels(){
-  ['flt-cli','cnt-cli','ci-cli'].forEach(id=>{
+  ['flt-cli','cnt-cli','ci-cli','flt-clitarea'].forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
     const cur=el.value;
-    const first=id==='flt-cli'?'<option value="">Todos los clientes</option>':'<option value="">Selecciona cliente</option>';
+    const first=(id==='flt-cli'||id==='flt-clitarea')?'<option value="">Todos los clientes</option>':'<option value="">Selecciona cliente</option>';
     el.innerHTML=first+S.clientes.map(c=>`<option value="${c.id||c.id_odoo}">${c.nombre}</option>`).join('');
     if (cur) el.value=cur;
   });
@@ -2383,15 +2409,29 @@ async function finalizarConteoTarea(){
         (x.estatus==='proceso'||x.estatus==='pendiente'));
     }
     if (t){
-      const esTercero=!!t.sesionRef;
-      if (!esTercero && t.tipo==='conteo' && (t.asignados||[]).length>=2){
-        /* Cruzado: completar solo cuando AMBOS equipos finalizaron */
+      if (t.tipo==='conteo' && (t.asignados||[]).length>=2){
+        /* Cruzado: completar cuando ambos equipos finalizaron Y
+           no quedan discrepancias sin resolver por el Equipo 3 */
         const sesiones=await fsGet('sesiones');
         const ses=sesiones.find(s=>s.id===S.sesionActiva)||{};
         const fins=Object.keys(ses).filter(k=>k.startsWith('fin_eq')).length;
-        if (fins>=2){
+
+        /* ¿Quedan alertas pendientes (e1≠e2 sin e3)? */
+        const cs=await fsGet('conteos');
+        const delSes=cs.filter(c=>c.sesionId===S.sesionActiva&&c.modo!=='dirigido');
+        const mapa={};
+        delSes.forEach(c=>(c.items||[]).forEach(it=>{
+          const k=c.ubicacion+'|'+it.sku;
+          (mapa[k]=mapa[k]||{})['e'+c.equipo]=it.cantidad;
+        }));
+        const alertasPend=Object.values(mapa).some(m=>m.e1!=null&&m.e2!=null&&m.e1!==m.e2&&m.e3==null);
+
+        if (alertasPend){
+          toast('Tu conteo quedó cerrado. Hay discrepancias: la tarea sigue abierta hasta que un 3er operador resuelva (Equipo 3).','warn');
+        } else if (fins>=2){
           await cambiarEstatus(t.id,'completada');
-          toast(`✅ Tarea "${t.titulo}" completada — ambos equipos finalizaron`,'success');
+          if (t.requiereTercero) await fsUpd(`tareas/${t.id}`,{requiereTercero:false});
+          toast(`✅ Tarea "${t.titulo}" completada — conteo validado`,'success');
         } else {
           toast('Tu conteo quedó cerrado. La tarea se completará cuando el otro equipo finalice.','info');
         }
@@ -2453,28 +2493,24 @@ async function cruzarConteos(sid,ubic){
   });
   renderValidacion({resultados});
 
-  /* ── 3ER CONTEO AUTOMÁTICO ──
-     Si hay SKUs en alerta (Eq1 ≠ Eq2 sin 3er conteo), se crea
-     automáticamente una tarea urgente vinculada a esta sesión. */
+  /* ── 3ER CONTEO COMO EXTENSIÓN DE LA MISMA TAREA ──
+     Si hay SKUs en alerta (Eq1 ≠ Eq2), la tarea original se marca
+     "requiere 3er conteo" y queda ABIERTA. El admin agrega un tercer
+     operador a ESA MISMA tarea; al abrirla entrará automáticamente
+     como Equipo 3 en la misma sesión y su conteo resuelve. */
   const hayAlerta=resultados.some(r=>r.estado==='alerta');
   if (hayAlerta){
-    const tid=('3C-'+sid+'-'+ubic).replace(/[^A-Za-z0-9\-_]/g,'_');
-    const yaExiste=S.tareas.some(t=>t.id===tid);
-    if (!yaExiste){
-      const base=estos[0]||{};
-      const skusAlerta=resultados.filter(r=>r.estado==='alerta').map(r=>r.sku).join(', ');
-      await fsSet(`tareas/${tid}`,{
-        tipo:'conteo', urgencia:'alta',
-        titulo:`⚠️ 3er conteo — ${ubic}`,
-        notas:`Generado automáticamente por discrepancia entre Eq.1 y Eq.2 en: ${skusAlerta}. Asignar a un operador distinto a los dos originales.`,
-        clienteId:base.clienteId||'', cliente:base.cliente||'',
-        ubicacion:ubic, almacen:base.almacen||'',
-        asignados:[], estatus:'pendiente',
-        sesionRef:sid,
-        creadoPor:'Sistema (discrepancia automática)',
+    const taskId=sid.startsWith('SES-')?sid.substring(4):'';
+    const t=taskId?S.tareas.find(x=>x.id===taskId):null;
+    const skusAlerta=resultados.filter(r=>r.estado==='alerta').map(r=>r.sku).join(', ');
+    if (t && t.estatus!=='completada' && !t.requiereTercero){
+      await fsUpd(`tareas/${t.id}`,{
+        requiereTercero:true,
+        estatus:'proceso',
+        notas:((t.notas||'')+`\n⚠️ Discrepancia en ${ubic} (${skusAlerta}). Agrega un 3er operador a esta tarea: al abrirla contará como Equipo 3.`).trim(),
       });
-      toast(`⚠️ Discrepancia en ${ubic}: se creó tarea de 3er conteo (asígnala desde el panel)`,'warn');
     }
+    toast(`⚠️ Discrepancia en ${ubic} (${skusAlerta}): la tarea queda abierta — requiere 3er conteo`,'warn');
   }
 }
 
@@ -2608,7 +2644,10 @@ function renderCIItems(){
         <div><label class="fl">Cantidad</label><input class="fc" type="number" min="0" value="${it.qty||''}" oninput="S.ci.items[${i}].qty=Number(this.value)||0"></div>
       </div>
       <div class="fg"><label class="fl">Código de barras</label>
-        <input class="fc" value="${it.barcode}" oninput="S.ci.items[${i}].barcode=this.value" placeholder="EAN / UPC"></div>
+        <div style="display:flex;gap:8px;">
+          <input class="fc" value="${it.barcode}" oninput="S.ci.items[${i}].barcode=this.value" placeholder="EAN / UPC" style="flex:1;">
+          <button class="btn btn-sm btn-o" onclick="abrirScanner('ci-bc-${i}')" aria-label="Escanear código del SKU ${i+1}" title="Escanear con cámara"><i class="ti ti-scan"></i></button>
+        </div></div>
       <div class="fotozone" onclick="trigFoto(${i})">
         <img id="fp-${i}" class="fotoprev" ${it.foto64?`src="${it.foto64}" style="display:block;"`:''}>
         ${!it.foto64?`<i class="ti ti-camera" style="font-size:20px;color:var(--txt2);"></i><div style="font-size:10px;color:var(--txt2);margin-top:4px;">Fotografiar SKU ${i+1}</div>`:''}
@@ -2811,11 +2850,47 @@ async function abrirScanner(target){
   if (title) title.textContent=
     target==='cnt-ubic' ? 'Escanear ubicación' :
     target==='c-sku'    ? 'Escanear SKU' : 'Escanear código de barras';
+
+  /* Formatos 1D + QR explícitos — clave para que lea códigos de barras
+     de producto (EAN/UPC) en iPhone y Android */
+  let formatos;
   try {
-    scannerObj=new Html5Qrcode('scanner-box');
+    formatos=[
+      Html5QrcodeSupportedFormats.QR_CODE,
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODE_93,
+      Html5QrcodeSupportedFormats.ITF,
+      Html5QrcodeSupportedFormats.CODABAR,
+    ];
+  } catch(e){ formatos=undefined; }
+
+  const config={
+    fps:10,
+    /* Caja ancha y baja: ideal para códigos de barras 1D */
+    qrbox:(vw,vh)=>{
+      const w=Math.min(340,Math.floor(vw*0.9));
+      return { width:w, height:Math.floor(w*0.5) };
+    },
+    aspectRatio:1.333,
+    videoConstraints:{
+      facingMode:'environment',
+      width:{ ideal:1920 },
+      height:{ ideal:1080 },
+    },
+    experimentalFeatures:{ useBarCodeDetectorIfSupported:true },
+  };
+  if (formatos) config.formatsToSupport=formatos;
+
+  try {
+    scannerObj=new Html5Qrcode('scanner-box',{ verbose:false });
     await scannerObj.start(
       { facingMode:'environment' },
-      { fps:10, qrbox:{ width:250, height:150 } },
+      config,
       txt=>{ onScanOk(txt); },
       ()=>{} /* errores de frame: ignorar */
     );
@@ -2830,16 +2905,35 @@ function onScanOk(txt){
   const val=(txt||'').trim();
   if (!val) return;
   cerrarScanner();
+
   if (S.scanTarget==='cnt-ubic'){
     const el=document.getElementById('cnt-ubic');
     if (el) el.value=val.toUpperCase();
     toast('Ubicación: '+val,'success');
     document.getElementById('c-sku')?.focus();
+
   } else if (S.scanTarget==='c-sku'){
     const el=document.getElementById('c-sku');
     if (el) el.value=val;
     toast('SKU: '+val,'success');
     document.getElementById('c-qty')?.focus();
+
+  } else if (S.scanTarget && S.scanTarget.startsWith('ci-bc-')){
+    /* Escaneo por SKU específico del pallet (check-in) */
+    const i=parseInt(S.scanTarget.split('-')[2],10);
+    if (!isNaN(i) && S.ci.items[i]){
+      S.ci.items[i].barcode=val;
+      const sku=S.skus.find(s=>s.barcode===val||s.sku===val||String(s.id_odoo)===val);
+      if (sku){
+        S.ci.items[i].sku=sku.sku;
+        S.ci.items[i].desc=sku.descripcion||'';
+        toast(`SKU ${i+1}: ${sku.sku} — ${sku.descripcion||''}`,'success');
+      } else {
+        toast(`Código capturado para SKU ${i+1}: ${val}`,'success');
+      }
+      renderCIItems();
+    }
+
   } else {
     procesarBarcode(val);
   }
@@ -3115,17 +3209,32 @@ function expXLSXMulti(sheets,name){
 function expAdmConteo(){
   const dia=diaExport();
   const sheets={};
-  S.conteos.filter(c=>enAlmacen(c)&&(c.fecha||'').split('T')[0]===dia).forEach(c=>{
+  S.conteos.filter(c=>c.modo!=='dirigido'&&enAlmacen(c)&&(c.fecha||'').split('T')[0]===dia).forEach(c=>{
     const cli=c.cliente||'SIN CLIENTE';
-    if (!sheets[cli]) sheets[cli]=[['Tipo','Fecha','Hora','Ubicación','SKU','Equipo','Cantidad','Operador','Almacén','Observaciones','Estado']];
+    if (!sheets[cli]) sheets[cli]=[['Fecha','Hora','Ubicación','SKU','Equipo','Cantidad','Operador','Almacén','Observaciones','Estado']];
     (c.items||[]).forEach(it=>sheets[cli].push([
-      c.modo==='dirigido'?'Dirigido':'Cruzado',
       (c.fecha||'').split('T')[0], fmtHora(c.fecha),
       c.ubicacion||'', it.sku||'', c.equipo||'', it.cantidad||0,
       c.usuario||'', c.almacen||'', c.observaciones||'', c.estado||'',
     ]));
   });
-  expXLSXMulti(sheets,`Conteos_${dia}.xlsx`);
+  expXLSXMulti(sheets,`ConteosCruzados_${dia}.xlsx`);
+}
+
+function expAdmDirigido(){
+  const dia=diaExport();
+  const sheets={};
+  S.conteos.filter(c=>c.modo==='dirigido'&&enAlmacen(c)&&(c.fecha||'').split('T')[0]===dia).forEach(c=>{
+    const cli=c.cliente||'SIN CLIENTE';
+    if (!sheets[cli]) sheets[cli]=[['Fecha','Hora','Ubicación','SKU','Cantidad','Operador','Almacén','Observaciones','Estado']];
+    (c.items||[]).forEach(it=>sheets[cli].push([
+      (c.fecha||'').split('T')[0], fmtHora(c.fecha),
+      c.ubicacion||'', it.sku||'', it.cantidad||0,
+      c.usuario||'', c.almacen||'', c.observaciones||'',
+      c.estado==='validado'?'Validado':'Por validar',
+    ]));
+  });
+  expXLSXMulti(sheets,`ConteosDirigidos_${dia}.xlsx`);
 }
 
 function expAdmCI(){
