@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <!-- ══════════════════════════════════════════════════
@@ -717,17 +718,29 @@ body.role-operador .adm{display:none!important;}
                 <div class="ctitle"><i class="ti ti-users"></i><span id="eq-lbl">Equipo 1</span></div>
                 <span class="est est-proceso" id="cnt-badge">0 ítems</span>
               </div>
+              <div id="cnt-ubics-reg" style="margin-bottom:10px;"></div>
               <div class="fg"><label class="fl">Ubicación que estás contando</label>
-                <input class="fc" id="cnt-ubic" placeholder="Ej: A-03-02"></div>
+                <div style="display:flex;gap:8px;">
+                  <input class="fc" id="cnt-ubic" placeholder="Ej: A-03-02" style="flex:1;">
+                  <button class="btn btn-sm" onclick="abrirScanner('cnt-ubic')" aria-label="Escanear ubicación" title="Escanear con cámara"><i class="ti ti-scan"></i></button>
+                </div></div>
               <div id="c-items-list" style="margin-bottom:10px;"></div>
               <div style="display:flex;gap:8px;margin-bottom:12px;">
                 <input class="fc" id="c-sku" placeholder="SKU" style="flex:2;" onkeydown="if(event.key==='Enter')addItem()">
+                <button class="btn btn-sm" onclick="abrirScanner('c-sku')" aria-label="Escanear SKU" title="Escanear con cámara"><i class="ti ti-scan"></i></button>
                 <input class="fc" id="c-qty" placeholder="Cant." type="number" min="0" style="flex:1;" onkeydown="if(event.key==='Enter')addItem()">
                 <button class="btn btn-sm btn-p" onclick="addItem()" aria-label="Agregar"><i class="ti ti-plus"></i></button>
               </div>
-              <button class="btn btn-ok" id="btn-enviar-conteo" onclick="enviarConteo()" style="width:100%;justify-content:center;padding:10px;">
-                <i class="ti ti-check"></i>Finalizar y enviar conteo
-              </button>
+              <div class="fg"><label class="fl">Observaciones de esta ubicación (opcional)</label>
+                <textarea class="fc" id="cnt-obs" placeholder="Ej: caja dañada, reguero, tarima incompleta…" style="min-height:54px;"></textarea></div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-p" id="btn-enviar-conteo" onclick="enviarConteo()" style="flex:1;min-width:200px;justify-content:center;padding:10px;">
+                  <i class="ti ti-device-floppy"></i>Guardar ubicación y continuar
+                </button>
+                <button class="btn btn-ok" id="btn-fin-conteo" onclick="finalizarConteoTarea()" style="justify-content:center;padding:10px;">
+                  <i class="ti ti-flag-check"></i>Finalizar conteo
+                </button>
+              </div>
             </div>
             <div class="card">
               <div class="chdr"><div class="ctitle"><i class="ti ti-scale"></i>Resultado en tiempo real</div></div>
@@ -784,12 +797,11 @@ body.role-operador .adm{display:none!important;}
               <button class="btn btn-sm" onclick="ciGoto(0)"><i class="ti ti-arrow-left"></i>Atrás</button>
             </div>
             <div id="ci-pallets-list" style="margin-bottom:12px;"></div>
-            <div class="scanzone" id="scan-zone" onclick="activarScanner()">
+            <div class="scanzone" id="scan-zone" onclick="abrirScanner('checkin')">
               <i class="ti ti-scan" style="font-size:28px;color:var(--orange);"></i>
               <div style="font-size:12px;font-weight:600;color:var(--blue);">Toca para escanear código de barras</div>
-              <div style="font-size:10px;color:var(--txt2);">Cámara o pistola lectora</div>
+              <div style="font-size:10px;color:var(--txt2);">Funciona con la cámara del celular</div>
             </div>
-            <video id="scan-video" style="display:none;width:100%;border-radius:var(--r);margin-top:8px;max-height:200px;object-fit:cover;" autoplay playsinline></video>
             <div style="display:flex;gap:8px;margin:10px 0;">
               <input class="fc" id="ci-barcode" placeholder="O digita el código manualmente" onkeydown="if(event.key==='Enter')procesarBarcode(this.value)">
               <button class="btn btn-sm btn-p" onclick="procesarBarcode(document.getElementById('ci-barcode').value)"><i class="ti ti-check"></i></button>
@@ -884,12 +896,25 @@ body.role-operador .adm{display:none!important;}
 
         <div class="card">
           <div class="chdr">
-            <div class="ctitle"><i class="ti ti-arrows-cross"></i>Conteos Cruzados</div>
-            <button class="btn btn-sm" onclick="expAdmConteo()"><i class="ti ti-file-spreadsheet"></i>Excel</button>
+            <div class="ctitle"><i class="ti ti-chart-bar"></i>Productividad por actividad</div>
+            <span style="font-size:10px;color:var(--txt2);">Inicio · fin · piezas/hora · discrepancias</span>
           </div>
           <div class="twrap">
             <table>
-              <thead><tr><th>Fecha</th><th>Cliente</th><th>Ubicación</th><th>SKU</th><th>Eq.1</th><th>Eq.2</th><th>Eq.3</th><th>Dif.</th><th>Estado</th></tr></thead>
+              <thead><tr><th>Fecha</th><th>Cliente</th><th>Operador</th><th>Actividad</th><th>Inicio</th><th>Fin</th><th>Piezas</th><th>Pzs/h</th><th>Discrep.</th></tr></thead>
+              <tbody id="tb-mon-prod"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="chdr">
+            <div class="ctitle"><i class="ti ti-arrows-cross"></i>Conteos Cruzados</div>
+            <button class="btn btn-sm" onclick="expAdmConteo()"><i class="ti ti-file-spreadsheet"></i>Excel del día (por cliente)</button>
+          </div>
+          <div class="twrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>Cliente</th><th>Ubicación</th><th>SKU</th><th>Eq.1</th><th>Eq.2</th><th>Eq.3</th><th>Dif.</th><th>Obs.</th><th>Estado</th></tr></thead>
               <tbody id="tb-mon-cruzados"></tbody>
             </table>
           </div>
@@ -901,7 +926,7 @@ body.role-operador .adm{display:none!important;}
           </div>
           <div class="twrap">
             <table>
-              <thead><tr><th>Fecha</th><th>Cliente</th><th>Operador</th><th>Ubicación</th><th>SKU</th><th>Cantidad</th><th>Estado</th><th>Validar</th></tr></thead>
+              <thead><tr><th>Fecha</th><th>Cliente</th><th>Operador</th><th>Ubicación</th><th>SKU</th><th>Cantidad</th><th>Obs.</th><th>Estado</th><th>Validar</th></tr></thead>
               <tbody id="tb-mon-dirigidos"></tbody>
             </table>
           </div>
@@ -910,7 +935,7 @@ body.role-operador .adm{display:none!important;}
         <div class="card">
           <div class="chdr">
             <div class="ctitle"><i class="ti ti-scan"></i>Check-Ins</div>
-            <button class="btn btn-sm" onclick="expAdmCI()"><i class="ti ti-file-spreadsheet"></i>Excel</button>
+            <button class="btn btn-sm" onclick="expAdmCI()"><i class="ti ti-file-spreadsheet"></i>Excel del día (por cliente)</button>
           </div>
           <div class="twrap">
             <table>
@@ -1020,6 +1045,20 @@ body.role-operador .adm{display:none!important;}
   </div>
 </div>
 
+<!-- ═══ MODAL SCANNER (cámara) ═══ -->
+<div class="modal-bg" id="modal-scanner">
+  <div class="modal" style="max-width:430px;">
+    <div class="mhdr">
+      <div class="mtitle" id="scanner-title">Escanear código</div>
+      <button class="mclose" onclick="cerrarScanner()" aria-label="Cerrar">×</button>
+    </div>
+    <div id="scanner-box" style="width:100%;border-radius:var(--r);overflow:hidden;background:#000;min-height:240px;"></div>
+    <div style="font-size:11px;color:var(--txt2);margin-top:10px;text-align:center;">
+      Apunta la cámara al código de barras o QR. La lectura es automática.
+    </div>
+  </div>
+</div>
+
 <!-- ═══ MODAL OPERADOR ═══ -->
 <div class="modal-bg" id="modal-operador">
   <div class="modal">
@@ -1075,10 +1114,13 @@ const S = {
   tareaActivaId: null,
 
   /* Datos en vivo (alimentados por listeners de Firestore) */
-  clientes:[], skus:[], ubicaciones:[], operadores:[], tareas:[], conteos:[], checkins:[],
+  clientes:[], skus:[], ubicaciones:[], operadores:[], tareas:[], conteos:[], checkins:[], sesiones:[],
 
   /* Conteo */
   sesionActiva:null, modoConteo:'cruzado', equipo:'1', cItems:[],
+
+  /* Scanner */
+  scanTarget:null,
 
   /* Check-in */
   ci:{ po:'', clienteId:'', proveedor:'', fecha:'', pallet:1, pallets:[],
@@ -1397,6 +1439,7 @@ function iniciarListeners(){
   listen('operadores', docs=>{ S.operadores=docs; refreshUI('ops');     });
   listen('conteos',    docs=>{ S.conteos=docs;    refreshUI('conteos'); });
   listen('checkins',   docs=>{ S.checkins=docs;   refreshUI('checkins');});
+  listen('sesiones',   docs=>{ S.sesiones=docs;   refreshUI('sesiones');});
 }
 function detenerListeners(){ S.listeners.forEach(u=>{try{u()}catch(e){}}); S.listeners=[]; }
 
@@ -1409,7 +1452,7 @@ function refreshUI(origen){
   if (act==='page-mis-tareas')                         renderMisTareas();
   if (act==='page-operadores'  && origen==='ops')      renderOperadores();
   if (act==='page-monitor')                            renderMonitor();
-  if (act==='page-conteo'      && origen==='conteos')  { renderConteoList(); renderValidacionLive(); }
+  if (act==='page-conteo'      && origen==='conteos')  { renderConteoList(); renderValidacionLive(); renderUbicsRegistradas(); }
   if (origen==='ops') poblarSels();
 }
 
@@ -1814,6 +1857,9 @@ async function cambiarEstatus(id,estatus){
   if (!t) return;
   try {
     const data={estatus};
+    if (estatus==='proceso' && !t.inicioEn){
+      data.inicioEn=new Date().toISOString();
+    }
     if (estatus==='completada'){
       data.completadaEn=new Date().toISOString();
       data.completadaPor=S.nombre;
@@ -2157,7 +2203,14 @@ async function iniciarSesion(){
      y el equipo se asigna automático por su orden en la asignación. */
   let sid;
   const t=S.tareaActivaId?S.tareas.find(x=>x.id===S.tareaActivaId):null;
-  if (t && (t.tipo==='conteo'||t.tipo==='dirigido')){
+  if (t && t.sesionRef){
+    /* Tarea de 3er conteo: se une a la sesión original como Equipo 3 */
+    sid=t.sesionRef;
+    eq='3';
+    const eqSel=document.getElementById('cnt-eq');
+    if (eqSel) eqSel.value='3';
+    toast('3er conteo: te uniste a la sesión original como Equipo 3','info');
+  } else if (t && (t.tipo==='conteo'||t.tipo==='dirigido')){
     sid='SES-'+t.id;
     if (t.tipo==='conteo'){
       const idx=(t.asignados||[]).findIndex(a=>a.toLowerCase()===S.nombre.toLowerCase());
@@ -2241,10 +2294,11 @@ async function enviarConteo(){
 
   const cliId=document.getElementById('cnt-cli')?.value||'';
   const cliNombre=S.clientes.find(c=>String(c.id||c.id_odoo)===String(cliId))?.nombre||cliId;
+  const obs=document.getElementById('cnt-obs')?.value?.trim()||'';
   const docId=`${S.sesionActiva}-${ubic.replace(/[^A-Z0-9\-]/gi,'_')}-${S.equipo}`;
 
   try {
-    /* 1 — Guardar conteo */
+    /* 1 — Guardar conteo de ESTA ubicación */
     await fsSet(`conteos/${docId}`,{
       sesionId:S.sesionActiva,
       modo:S.modoConteo,
@@ -2254,16 +2308,73 @@ async function enviarConteo(){
       almacen:S.almacen||'',
       tareaId:S.tareaActivaId||'',
       ubicacion:ubic,
+      observaciones:obs,
       fecha:new Date().toISOString(),
       items:S.cItems.map(i=>({sku:i.sku.trim().toLowerCase(),cantidad:Number(i.qty)||0})),
       estado:S.modoConteo==='dirigido'?'pendiente_validacion':'registrado',
     });
-    toast('✅ Conteo guardado','success');
 
-    /* 2 — Validación cruzada (solo modo cruzado) */
+    /* 2 — Validación cruzada + 3er conteo automático si hay discrepancia */
     if (S.modoConteo==='cruzado') await cruzarConteos(S.sesionActiva,ubic);
 
-    /* 3 — Completar tarea: con datos frescos de Firestore */
+    /* 3 — Limpiar para la SIGUIENTE ubicación (la sesión y la tarea siguen abiertas) */
+    S.cItems=[];
+    renderCItems();
+    const ubicEl=document.getElementById('cnt-ubic');
+    if (ubicEl){ ubicEl.value=''; ubicEl.focus(); }
+    const obsEl=document.getElementById('cnt-obs');
+    if (obsEl) obsEl.value='';
+    renderUbicsRegistradas();
+    renderConteoList();
+    toast(`✅ Ubicación ${ubic} registrada. Continúa con la siguiente o pulsa "Finalizar conteo".`,'success');
+  } catch(e){
+    toast('❌ Error: '+e.message,'error');
+  } finally {
+    if (btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-device-floppy"></i>Guardar ubicación y continuar'; }
+  }
+}
+
+/* Chips de ubicaciones ya registradas en la sesión actual */
+function renderUbicsRegistradas(){
+  const el=document.getElementById('cnt-ubics-reg'); if(!el) return;
+  if (!S.sesionActiva){ el.innerHTML=''; return; }
+  const mios=S.conteos.filter(c=>c.sesionId===S.sesionActiva&&String(c.equipo)===String(S.equipo));
+  if (!mios.length){ el.innerHTML=''; return; }
+  el.innerHTML=`
+    <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--txt2);margin-bottom:5px;">
+      Ubicaciones registradas en esta sesión: ${mios.length}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      ${mios.map(c=>{
+        const n=(c.items||[]).length;
+        return `<span class="est est-completada" title="${n} SKUs${c.observaciones?' · Obs: '+c.observaciones.replace(/"/g,'&quot;'):''}">
+          <i class="ti ti-check" style="font-size:10px;"></i>${c.ubicacion} (${n})
+        </span>`;
+      }).join('')}
+    </div>`;
+}
+
+/* Cierra la participación del operador en el conteo y completa la tarea cuando corresponde */
+async function finalizarConteoTarea(){
+  if (!S.sesionActiva){ toast('No hay sesión activa','warn'); return; }
+  if (S.cItems.length){
+    toast('Tienes ítems sin guardar. Pulsa "Guardar ubicación y continuar" primero.','warn');
+    return;
+  }
+  const mios=S.conteos.filter(c=>c.sesionId===S.sesionActiva&&String(c.equipo)===String(S.equipo));
+  if (!mios.length){
+    toast('Aún no has registrado ninguna ubicación en esta sesión.','warn');
+    return;
+  }
+
+  const btn=document.getElementById('btn-fin-conteo');
+  if (btn){ btn.disabled=true; btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Cerrando…'; }
+
+  try {
+    const ahora=new Date().toISOString();
+    await fsSet(`sesiones/${S.sesionActiva}`,{['fin_eq'+S.equipo]:ahora});
+
+    /* Completar la tarea según el tipo */
     S.tareas=await fsGet('tareas');
     let t=S.tareaActivaId?S.tareas.find(x=>x.id===S.tareaActivaId&&x.estatus!=='completada'):null;
     if (!t){
@@ -2272,34 +2383,38 @@ async function enviarConteo(){
         (x.estatus==='proceso'||x.estatus==='pendiente'));
     }
     if (t){
-      if (t.tipo==='conteo' && (t.asignados||[]).length>=2){
-        /* Conteo cruzado: completar SOLO cuando ambos equipos enviaron */
-        const cs=await fsGet('conteos');
-        const equipos=[...new Set(cs.filter(c=>c.sesionId==='SES-'+t.id).map(c=>String(c.equipo)))];
-        if (equipos.length>=2){
+      const esTercero=!!t.sesionRef;
+      if (!esTercero && t.tipo==='conteo' && (t.asignados||[]).length>=2){
+        /* Cruzado: completar solo cuando AMBOS equipos finalizaron */
+        const sesiones=await fsGet('sesiones');
+        const ses=sesiones.find(s=>s.id===S.sesionActiva)||{};
+        const fins=Object.keys(ses).filter(k=>k.startsWith('fin_eq')).length;
+        if (fins>=2){
           await cambiarEstatus(t.id,'completada');
-          S.tareaActivaId=null;
-          ocultarBannersTarea();
-          toast(`✅ Tarea "${t.titulo}" completada — ambos equipos terminaron`,'success');
+          toast(`✅ Tarea "${t.titulo}" completada — ambos equipos finalizaron`,'success');
         } else {
-          toast('Conteo enviado. La tarea se completará cuando el otro equipo termine.','info');
+          toast('Tu conteo quedó cerrado. La tarea se completará cuando el otro equipo finalice.','info');
         }
       } else {
-        /* Dirigido o conteo de 1 operador: completar de inmediato */
         await cambiarEstatus(t.id,'completada');
-        S.tareaActivaId=null;
-        ocultarBannersTarea();
         toast(`✅ Tarea "${t.titulo}" completada`,'success');
       }
+    } else {
+      toast('Conteo cerrado','success');
     }
 
+    /* Reset de la UI de sesión */
+    S.sesionActiva=null;
+    S.tareaActivaId=null;
     S.cItems=[];
-    renderCItems();
-    renderConteoList();
+    document.getElementById('conteo-form').style.display='none';
+    document.getElementById('ses-lbl').textContent='—';
+    const reg=document.getElementById('cnt-ubics-reg'); if(reg) reg.innerHTML='';
+    ocultarBannersTarea();
   } catch(e){
     toast('❌ Error: '+e.message,'error');
   } finally {
-    if (btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i>Finalizar y enviar conteo'; }
+    if (btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-flag-check"></i>Finalizar conteo'; }
   }
 }
 
@@ -2317,7 +2432,7 @@ async function cruzarConteos(sid,ubic){
   const eq2=estos.find(c=>String(c.equipo)==='2');
   const eq3=estos.find(c=>String(c.equipo)==='3');
   if (!eq1||!eq2){
-    renderValidacionMsg('Registrado. Esperando al otro equipo para validar…');
+    renderValidacionMsg(`${ubic}: registrado. Esperando al otro equipo para validar…`);
     return;
   }
   const allSkus=[...new Set([...(eq1.items||[]).map(i=>i.sku),...(eq2.items||[]).map(i=>i.sku)])];
@@ -2337,6 +2452,30 @@ async function cruzarConteos(sid,ubic){
     sesionId:sid,ubicacion:ubic,resultados,ts:new Date().toISOString(),
   });
   renderValidacion({resultados});
+
+  /* ── 3ER CONTEO AUTOMÁTICO ──
+     Si hay SKUs en alerta (Eq1 ≠ Eq2 sin 3er conteo), se crea
+     automáticamente una tarea urgente vinculada a esta sesión. */
+  const hayAlerta=resultados.some(r=>r.estado==='alerta');
+  if (hayAlerta){
+    const tid=('3C-'+sid+'-'+ubic).replace(/[^A-Za-z0-9\-_]/g,'_');
+    const yaExiste=S.tareas.some(t=>t.id===tid);
+    if (!yaExiste){
+      const base=estos[0]||{};
+      const skusAlerta=resultados.filter(r=>r.estado==='alerta').map(r=>r.sku).join(', ');
+      await fsSet(`tareas/${tid}`,{
+        tipo:'conteo', urgencia:'alta',
+        titulo:`⚠️ 3er conteo — ${ubic}`,
+        notas:`Generado automáticamente por discrepancia entre Eq.1 y Eq.2 en: ${skusAlerta}. Asignar a un operador distinto a los dos originales.`,
+        clienteId:base.clienteId||'', cliente:base.cliente||'',
+        ubicacion:ubic, almacen:base.almacen||'',
+        asignados:[], estatus:'pendiente',
+        sesionRef:sid,
+        creadoPor:'Sistema (discrepancia automática)',
+      });
+      toast(`⚠️ Discrepancia en ${ubic}: se creó tarea de 3er conteo (asígnala desde el panel)`,'warn');
+    }
+  }
 }
 
 function renderValidacionMsg(msg){
@@ -2656,35 +2795,62 @@ function expCIExcel(){
   expXLSX(rows,`CheckIn_${S.ci.po||'SIN-PO'}_iFull.xlsx`);
 }
 
-/* ══════════ SCANNER ══════════ */
-async function activarScanner(){
-  const zone=document.getElementById('scan-zone');
-  const video=document.getElementById('scan-video');
-  if (S.scanning){ detenerScanner(); return; }
-  if (!navigator.mediaDevices?.getUserMedia){ toast('Cámara no disponible. Usa el campo manual.','warn'); return; }
+/* ══════════ SCANNER UNIVERSAL (html5-qrcode) ══════════
+   Funciona con la cámara de cualquier celular o PC.
+   Lee: EAN-13, EAN-8, CODE-128, CODE-39, UPC, QR y más. */
+let scannerObj=null;
+
+async function abrirScanner(target){
+  S.scanTarget=target;
+  if (typeof Html5Qrcode==='undefined'){
+    toast('El lector no cargó (revisa tu conexión). Usa el campo manual.','warn');
+    return;
+  }
+  abrirModal('modal-scanner');
+  const title=document.getElementById('scanner-title');
+  if (title) title.textContent=
+    target==='cnt-ubic' ? 'Escanear ubicación' :
+    target==='c-sku'    ? 'Escanear SKU' : 'Escanear código de barras';
   try {
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
-    S.scanStream=stream;
-    video.srcObject=stream;
-    video.style.display='block';
-    zone.innerHTML='<i class="ti ti-x" style="font-size:18px;color:var(--red);"></i><span style="font-size:11px;font-weight:600;color:var(--red);">Toca para cerrar cámara</span>';
-    S.scanning=true;
-    if ('BarcodeDetector' in window){
-      const det=new BarcodeDetector({formats:['ean_13','ean_8','code_128','qr_code','code_39','upc_a']});
-      const t=setInterval(async()=>{
-        if (!S.scanning){ clearInterval(t); return; }
-        try { const bc=await det.detect(video); if(bc.length){ procesarBarcode(bc[0].rawValue); clearInterval(t); detenerScanner(); } } catch(e){}
-      },500);
-    }
-  } catch(e){ toast('No se pudo acceder a la cámara.','warn'); }
+    scannerObj=new Html5Qrcode('scanner-box');
+    await scannerObj.start(
+      { facingMode:'environment' },
+      { fps:10, qrbox:{ width:250, height:150 } },
+      txt=>{ onScanOk(txt); },
+      ()=>{} /* errores de frame: ignorar */
+    );
+  } catch(e){
+    toast('No se pudo abrir la cámara: '+(e?.message||e),'error');
+    cerrarModal('modal-scanner');
+    scannerObj=null;
+  }
 }
 
-function detenerScanner(){
-  if (S.scanStream){ S.scanStream.getTracks().forEach(t=>t.stop()); S.scanStream=null; }
-  const v=document.getElementById('scan-video'); if(v) v.style.display='none';
-  const z=document.getElementById('scan-zone');
-  if (z) z.innerHTML='<i class="ti ti-scan" style="font-size:28px;color:var(--orange);"></i><div style="font-size:12px;font-weight:600;color:var(--blue);">Toca para escanear código de barras</div><div style="font-size:10px;color:var(--txt2);">Cámara o pistola lectora</div>';
-  S.scanning=false;
+function onScanOk(txt){
+  const val=(txt||'').trim();
+  if (!val) return;
+  cerrarScanner();
+  if (S.scanTarget==='cnt-ubic'){
+    const el=document.getElementById('cnt-ubic');
+    if (el) el.value=val.toUpperCase();
+    toast('Ubicación: '+val,'success');
+    document.getElementById('c-sku')?.focus();
+  } else if (S.scanTarget==='c-sku'){
+    const el=document.getElementById('c-sku');
+    if (el) el.value=val;
+    toast('SKU: '+val,'success');
+    document.getElementById('c-qty')?.focus();
+  } else {
+    procesarBarcode(val);
+  }
+}
+
+async function cerrarScanner(){
+  if (scannerObj){
+    try { await scannerObj.stop(); scannerObj.clear(); } catch(e){}
+    scannerObj=null;
+  }
+  cerrarModal('modal-scanner');
 }
 
 function procesarBarcode(cod){
@@ -2699,7 +2865,15 @@ function procesarBarcode(cod){
     S.ci.items[last].barcode=clean;
     renderCIItems();
     toast(`SKU: ${sku.sku} — ${sku.descripcion||''}`,'success');
-  } else toast('Código capturado: '+clean,'info');
+  } else {
+    /* Sin catálogo: poner el código en el último item del pallet */
+    if (S.ci.items.length>0){
+      const last=S.ci.items.length-1;
+      if (!S.ci.items[last].barcode) S.ci.items[last].barcode=clean;
+      renderCIItems();
+    }
+    toast('Código capturado: '+clean,'info');
+  }
 }
 
 /* ══════════ MONITOR (admin, tiempo real, con filtros) ══════════ */
@@ -2731,6 +2905,7 @@ function poblarMonCli(){
 
 function renderMonitor(){
   poblarMonCli();
+  renderProductividad();
 
   /* ── Cruzados: agrupados, ordenados por fecha desc ── */
   const cruzados=S.conteos.filter(c=>c.modo!=='dirigido'&&filtroMonitor(c));
@@ -2738,10 +2913,11 @@ function renderMonitor(){
   cruzados.forEach(c=>{
     (c.items||[]).forEach(it=>{
       const k=`${c.sesionId}|${c.ubicacion}|${it.sku}`;
-      if (!grps[k]) grps[k]={ses:c.sesionId,fecha:c.fecha||'',cliente:c.cliente||'—',ubic:c.ubicacion,sku:it.sku,e1:null,e2:null,e3:null};
+      if (!grps[k]) grps[k]={ses:c.sesionId,fecha:c.fecha||'',cliente:c.cliente||'—',ubic:c.ubicacion,sku:it.sku,e1:null,e2:null,e3:null,obs:[]};
       grps[k]['e'+c.equipo]=it.cantidad;
       if ((c.fecha||'')>(grps[k].fecha||'')) grps[k].fecha=c.fecha;
       if (c.cliente && grps[k].cliente==='—') grps[k].cliente=c.cliente;
+      if (c.observaciones && !grps[k].obs.includes(`Eq${c.equipo}: ${c.observaciones}`)) grps[k].obs.push(`Eq${c.equipo}: ${c.observaciones}`);
     });
   });
   const vals=Object.values(grps).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
@@ -2749,6 +2925,7 @@ function renderMonitor(){
   if (tb1) tb1.innerHTML=vals.length?vals.map(g=>{
     const dif=(g.e1!=null&&g.e2!=null)?Math.abs(g.e1-g.e2):null;
     const estado=g.e1==null||g.e2==null?'parcial':(g.e1===g.e2?'validado':(g.e3!=null?((g.e3===g.e1||g.e3===g.e2)?'validado 3er':'crítico'):'difiere'));
+    const obsTxt=g.obs.join(' · ');
     return `<tr>
       <td style="font-size:11px;font-family:var(--mono);">${(g.fecha||'').split('T')[0]||'—'}</td>
       <td style="font-size:11px;">${g.cliente}</td>
@@ -2758,14 +2935,15 @@ function renderMonitor(){
       <td style="font-family:var(--mono);">${g.e2??'—'}</td>
       <td style="font-family:var(--mono);">${g.e3??'—'}</td>
       <td style="font-family:var(--mono);color:${dif>0?'var(--red)':'var(--green)'};">${dif??'—'}</td>
+      <td style="font-size:10px;color:var(--txt2);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${obsTxt.replace(/"/g,'&quot;')}">${obsTxt||'—'}</td>
       <td><span class="est ${estado.startsWith('validado')?'est-completada':estado==='parcial'?'est-pendiente':'est-pausa'}">${estado}</span></td>
     </tr>`;
-  }).join(''):'<tr><td colspan="9"><div class="empty"><i class="ti ti-arrows-cross"></i><p>Sin conteos cruzados con ese filtro</p></div></td></tr>';
+  }).join(''):'<tr><td colspan="10"><div class="empty"><i class="ti ti-arrows-cross"></i><p>Sin conteos cruzados con ese filtro</p></div></td></tr>';
 
   /* ── Dirigidos: ordenados por fecha desc ── */
   const dirRows=[];
   S.conteos.filter(c=>c.modo==='dirigido'&&filtroMonitor(c)).forEach(c=>{
-    (c.items||[]).forEach(it=>dirRows.push({id:c.id,fecha:c.fecha||'',cliente:c.cliente||'—',usuario:c.usuario,ubic:c.ubicacion,sku:it.sku,qty:it.cantidad,estado:c.estado}));
+    (c.items||[]).forEach(it=>dirRows.push({id:c.id,fecha:c.fecha||'',cliente:c.cliente||'—',usuario:c.usuario,ubic:c.ubicacion,sku:it.sku,qty:it.cantidad,obs:c.observaciones||'',estado:c.estado}));
   });
   dirRows.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
   const tb2=document.getElementById('tb-mon-dirigidos');
@@ -2777,9 +2955,10 @@ function renderMonitor(){
       <td>${d.ubic}</td>
       <td style="font-family:var(--mono);font-size:11px;">${d.sku}</td>
       <td style="font-family:var(--mono);">${Number(d.qty||0).toLocaleString('es-MX')}</td>
+      <td style="font-size:10px;color:var(--txt2);max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${(d.obs||'').replace(/"/g,'&quot;')}">${d.obs||'—'}</td>
       <td><span class="est ${d.estado==='validado'?'est-completada':'est-pausa'}">${d.estado==='validado'?'validado':'por validar'}</span></td>
       <td>${d.estado!=='validado'?`<button class="btn btn-xs btn-ok" onclick="validarConteoDirigido('${d.id}')"><i class="ti ti-check"></i>Validar</button>`:'—'}</td>
-    </tr>`).join(''):'<tr><td colspan="8"><div class="empty"><i class="ti ti-route"></i><p>Sin conteos dirigidos con ese filtro</p></div></td></tr>';
+    </tr>`).join(''):'<tr><td colspan="9"><div class="empty"><i class="ti ti-route"></i><p>Sin conteos dirigidos con ese filtro</p></div></td></tr>';
 
   /* ── Check-ins: ordenados por fecha desc ── */
   const cis=S.checkins.filter(filtroMonitor)
@@ -2811,12 +2990,154 @@ async function validarCI(id){
   catch(e){ toast('Error: '+e.message,'error'); }
 }
 
-function expAdmConteo(){ expConteo(); }
+/* ══════════ PRODUCTIVIDAD ══════════
+   Por operador y actividad: inicio, fin, piezas, piezas/hora y discrepancias. */
+function renderProductividad(){
+  const tb=document.getElementById('tb-mon-prod'); if(!tb) return;
+  const filas=[];
+
+  /* — Conteos: agrupar por sesión + equipo (un operador por equipo) — */
+  const porSesEq={};
+  S.conteos.filter(filtroMonitor).forEach(c=>{
+    const k=c.sesionId+'|'+c.equipo;
+    if (!porSesEq[k]) porSesEq[k]={ses:c.sesionId,eq:String(c.equipo),usuario:c.usuario||'—',
+      cliente:c.cliente||'—',modo:c.modo||'cruzado',piezas:0,fMin:'',fMax:''};
+    const o=porSesEq[k];
+    (c.items||[]).forEach(it=>o.piezas+=Number(it.cantidad)||0);
+    if (!o.fMin||c.fecha<o.fMin) o.fMin=c.fecha;
+    if ((c.fecha||'')>o.fMax) o.fMax=c.fecha;
+  });
+
+  /* Discrepancias por sesión (SKUs donde Eq1≠Eq2) */
+  const discPorSes={};
+  const mapa={};
+  S.conteos.filter(c=>c.modo!=='dirigido').forEach(c=>{
+    (c.items||[]).forEach(it=>{
+      const k=c.sesionId+'|'+c.ubicacion+'|'+it.sku;
+      if (!mapa[k]) mapa[k]={ses:c.sesionId};
+      mapa[k]['e'+c.equipo]=it.cantidad;
+    });
+  });
+  Object.values(mapa).forEach(m=>{
+    if (m.e1!=null&&m.e2!=null&&m.e1!==m.e2){
+      discPorSes[m.ses]=(discPorSes[m.ses]||0)+1;
+    }
+  });
+
+  Object.values(porSesEq).forEach(o=>{
+    const ses=S.sesiones.find(s=>s.id===o.ses)||{};
+    const inicio=ses.fecha||o.fMin||'';
+    const fin=ses['fin_eq'+o.eq]||o.fMax||'';
+    let pph='—';
+    if (inicio&&fin){
+      const horas=(new Date(fin)-new Date(inicio))/3600000;
+      if (horas>0.01) pph=Math.round(o.piezas/horas).toLocaleString('es-MX');
+    }
+    filas.push({
+      fecha:(fin||inicio||'').split('T')[0],
+      cliente:o.cliente, usuario:o.usuario,
+      actividad:o.modo==='dirigido'?'C. Dirigido':'C. Cruzado (Eq.'+o.eq+')',
+      inicio:fmtHora(inicio), fin:fmtHora(fin),
+      piezas:o.piezas, pph,
+      disc:o.modo==='dirigido'?'—':String(discPorSes[o.ses]||0),
+      ordén:fin||inicio||'',
+    });
+  });
+
+  /* — Check-ins — */
+  S.checkins.filter(filtroMonitor).forEach(c=>{
+    const piezas=(c.pallets||[]).reduce((s,p)=>s+(p.items||[]).reduce((x,i)=>x+Number(i.qty||0),0),0);
+    const t=S.tareas.find(x=>x.id===c.tareaId);
+    const inicio=t?.inicioEn||'';
+    const fin=c.creado||c.fecha||'';
+    let pph='—';
+    if (inicio&&fin){
+      const horas=(new Date(fin)-new Date(inicio))/3600000;
+      if (horas>0.01) pph=Math.round(piezas/horas).toLocaleString('es-MX');
+    }
+    filas.push({
+      fecha:(fin||'').split('T')[0],
+      cliente:c.cliente||c.clienteId||'—', usuario:c.usuario||'—',
+      actividad:'Check-In', inicio:fmtHora(inicio), fin:fmtHora(fin),
+      piezas, pph, disc:'—', ordén:fin,
+    });
+  });
+
+  filas.sort((a,b)=>(b.ordén||'').localeCompare(a.ordén||''));
+
+  tb.innerHTML=filas.length?filas.map(f=>`
+    <tr>
+      <td style="font-size:11px;font-family:var(--mono);">${f.fecha||'—'}</td>
+      <td style="font-size:11px;">${f.cliente}</td>
+      <td style="font-size:11px;">${f.usuario}</td>
+      <td style="font-size:11px;">${f.actividad}</td>
+      <td style="font-family:var(--mono);font-size:11px;">${f.inicio}</td>
+      <td style="font-family:var(--mono);font-size:11px;">${f.fin}</td>
+      <td style="font-family:var(--mono);">${Number(f.piezas).toLocaleString('es-MX')}</td>
+      <td style="font-family:var(--mono);font-weight:700;">${f.pph}</td>
+      <td style="font-family:var(--mono);color:${f.disc!=='—'&&Number(f.disc)>0?'var(--red)':'var(--txt2)'};">${f.disc}</td>
+    </tr>`).join(''):'<tr><td colspan="9"><div class="empty"><i class="ti ti-chart-bar"></i><p>Sin actividad con ese filtro</p></div></td></tr>';
+}
+
+function fmtHora(iso){
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}); }
+  catch(e){ return '—'; }
+}
+
+/* ══════════ EXCEL POR CLIENTE Y POR DÍA ══════════
+   Una hoja por cliente, solo registros del día seleccionado
+   (filtro de fecha del Monitor; sin filtro = hoy). */
+function diaExport(){
+  return document.getElementById('mon-fecha')?.value || new Date().toISOString().split('T')[0];
+}
+
+function expXLSXMulti(sheets,name){
+  const keys=Object.keys(sheets);
+  if (!keys.length){ toast('Sin registros para ese día. Cambia la fecha en el filtro del Monitor.','warn'); return; }
+  try {
+    const wb=XLSX.utils.book_new();
+    const usados=new Set();
+    keys.forEach(k=>{
+      const ws=XLSX.utils.aoa_to_sheet(sheets[k]);
+      ws['!cols']=sheets[k][0].map((_,ci)=>({wch:Math.min(40,Math.max(...sheets[k].map(r=>String(r[ci]??'').length))+2)}));
+      let nombre=k.replace(/[\\\/\?\*\[\]:]/g,'').substring(0,28)||'Hoja';
+      let fin=nombre, n=1;
+      while (usados.has(fin)){ fin=nombre.substring(0,25)+'_'+(n++); }
+      usados.add(fin);
+      XLSX.utils.book_append_sheet(wb,ws,fin);
+    });
+    XLSX.writeFile(wb,name);
+    toast(`Exportado: ${name} (${keys.length} cliente${keys.length>1?'s':''})`,'success');
+  } catch(e){ toast('Error exportando: '+e.message,'error'); }
+}
+
+function expAdmConteo(){
+  const dia=diaExport();
+  const sheets={};
+  S.conteos.filter(c=>enAlmacen(c)&&(c.fecha||'').split('T')[0]===dia).forEach(c=>{
+    const cli=c.cliente||'SIN CLIENTE';
+    if (!sheets[cli]) sheets[cli]=[['Tipo','Fecha','Hora','Ubicación','SKU','Equipo','Cantidad','Operador','Almacén','Observaciones','Estado']];
+    (c.items||[]).forEach(it=>sheets[cli].push([
+      c.modo==='dirigido'?'Dirigido':'Cruzado',
+      (c.fecha||'').split('T')[0], fmtHora(c.fecha),
+      c.ubicacion||'', it.sku||'', c.equipo||'', it.cantidad||0,
+      c.usuario||'', c.almacen||'', c.observaciones||'', c.estado||'',
+    ]));
+  });
+  expXLSXMulti(sheets,`Conteos_${dia}.xlsx`);
+}
+
 function expAdmCI(){
-  const rows=[['PO','Cliente','Operador','Proveedor','Fecha','Pallet','SKU','Desc','Cantidad','Estado']];
-  S.checkins.forEach(ci=>(ci.pallets||[]).forEach(p=>(p.items||[]).filter(i=>i.sku).forEach(i=>
-    rows.push([ci.po||'',ci.cliente||ci.clienteId||'',ci.usuario||'',ci.proveedor||'',ci.fecha||'',p.pallet||1,i.sku||'',i.desc||'',i.qty||0,ci.validado?'Validado':'Pendiente']))));
-  expXLSX(rows,'CheckIns_iFull_HEART.xlsx');
+  const dia=diaExport();
+  const sheets={};
+  S.checkins.filter(c=>enAlmacen(c)&&((c.fecha||c.creado||'').split('T')[0]===dia)).forEach(ci=>{
+    const cli=ci.cliente||ci.clienteId||'SIN CLIENTE';
+    if (!sheets[cli]) sheets[cli]=[['PO','Operador','Proveedor','Fecha','Almacén','Pallet','SKU','Descripción','Cantidad','Estado']];
+    (ci.pallets||[]).forEach(p=>(p.items||[]).filter(i=>i.sku).forEach(i=>
+      sheets[cli].push([ci.po||'',ci.usuario||'',ci.proveedor||'',(ci.fecha||ci.creado||'').split('T')[0],ci.almacen||'',p.pallet||1,i.sku||'',i.desc||'',i.qty||0,ci.validado?'Validado':'Pendiente'])));
+  });
+  expXLSXMulti(sheets,`CheckIns_${dia}.xlsx`);
 }
 
 /* ══════════ QR ══════════ */
