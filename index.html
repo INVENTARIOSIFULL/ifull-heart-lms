@@ -498,6 +498,9 @@ body.role-operador .adm{display:none!important;}
         <i class="ti ti-arrow-back-up"></i><span class="nlbl">Devoluciones</span>
         <span class="nbadge" id="badge-devoluciones" style="display:none;">0</span>
       </button>
+      <button class="nav-item" data-page="especificaciones">
+        <i class="ti ti-ruler-2"></i><span class="nlbl">Especificaciones</span>
+      </button>
       <button class="nav-item" data-page="qr">
         <i class="ti ti-qrcode"></i><span class="nlbl">Generador QR</span>
       </button>
@@ -1714,6 +1717,100 @@ body.role-operador .adm{display:none!important;}
         </div>
       </div>
 
+      <!-- ═══ ESPECIFICACIONES (medidas + fotos) ═══ -->
+      <div class="page" id="page-especificaciones">
+        <div id="esp-tarea-info" style="display:none;" class="alert al-orange">
+          <i class="ti ti-ruler-2"></i><div id="esp-tarea-txt"></div>
+        </div>
+
+        <div class="twocol">
+          <div class="card">
+            <div class="chdr"><div class="ctitle"><i class="ti ti-ruler-2"></i>Toma de especificaciones</div></div>
+
+            <div class="frow c2">
+              <div class="fg"><label class="fl">Cliente</label>
+                <select class="fc" id="esp-cli"><option value="">Selecciona cliente</option></select></div>
+              <div class="fg"><label class="fl">SKU</label>
+                <div class="ac-wrap">
+                  <input class="fc" id="esp-sku" placeholder="SKU o descripción…" autocomplete="off"
+                         oninput="acBuscar('esp-sku',this.value)" onkeydown="acNav(event,'esp-sku')"
+                         onfocus="acBuscar('esp-sku',this.value)" onblur="setTimeout(()=>acCerrar('esp-sku'),150)">
+                  <div class="ac-list" id="ac-esp-sku"></div>
+                </div></div>
+            </div>
+            <div class="fg"><label class="fl">Descripción del producto</label>
+              <input class="fc" id="esp-desc" placeholder="Nombre / descripción"></div>
+
+            <!-- Medidas Caja Máster -->
+            <div class="div"></div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin-bottom:8px;">
+              <i class="ti ti-box"></i> Caja Máster
+            </div>
+            <div class="frow c3">
+              <div class="fg"><label class="fl">Largo (cm)</label><input class="fc" type="number" step="0.1" min="0" id="esp-m-largo" placeholder="0.0"></div>
+              <div class="fg"><label class="fl">Ancho (cm)</label><input class="fc" type="number" step="0.1" min="0" id="esp-m-ancho" placeholder="0.0"></div>
+              <div class="fg"><label class="fl">Alto (cm)</label><input class="fc" type="number" step="0.1" min="0" id="esp-m-alto" placeholder="0.0"></div>
+            </div>
+            <div class="frow c2">
+              <div class="fg"><label class="fl">Peso (kg)</label><input class="fc" type="number" step="0.01" min="0" id="esp-m-peso" placeholder="0.00"></div>
+              <div class="fg"><label class="fl">Piezas por caja máster</label><input class="fc" type="number" min="0" id="esp-m-pzs" placeholder="0"></div>
+            </div>
+
+            <!-- Medidas Producto -->
+            <div class="div"></div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);margin-bottom:8px;">
+              <i class="ti ti-package"></i> Producto (unidad)
+            </div>
+            <div class="frow c3">
+              <div class="fg"><label class="fl">Largo (cm)</label><input class="fc" type="number" step="0.1" min="0" id="esp-p-largo" placeholder="0.0"></div>
+              <div class="fg"><label class="fl">Ancho (cm)</label><input class="fc" type="number" step="0.1" min="0" id="esp-p-ancho" placeholder="0.0"></div>
+              <div class="fg"><label class="fl">Alto (cm)</label><input class="fc" type="number" step="0.1" min="0" id="esp-p-alto" placeholder="0.0"></div>
+            </div>
+            <div class="fg"><label class="fl">Peso unitario (kg)</label><input class="fc" type="number" step="0.001" min="0" id="esp-p-peso" placeholder="0.000"></div>
+
+            <div class="fg"><label class="fl">Observaciones</label>
+              <textarea class="fc" id="esp-obs" placeholder="Notas: producto frágil, requiere embalaje especial…" style="min-height:48px;"></textarea></div>
+
+            <button class="btn btn-p" id="btn-esp" onclick="guardarEspecificacion()" style="width:100%;justify-content:center;padding:11px;">
+              <i class="ti ti-device-floppy"></i>Guardar especificación
+            </button>
+          </div>
+
+          <div>
+            <!-- Fotos -->
+            <div class="card">
+              <div class="chdr"><div class="ctitle"><i class="ti ti-camera"></i>Evidencia fotográfica</div></div>
+              <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
+                <div class="fotozone" onclick="document.getElementById('esp-file-master').click()">
+                  <img id="esp-prev-master" class="fotoprev" style="display:none;max-height:120px;width:100%;object-fit:cover;border-radius:var(--r);">
+                  <div id="esp-icn-master"><i class="ti ti-box" style="font-size:26px;color:var(--blue);"></i><div style="font-size:11px;color:var(--txt2);margin-top:4px;">Caja Máster</div></div>
+                </div>
+                <div class="fotozone" onclick="document.getElementById('esp-file-prod').click()">
+                  <img id="esp-prev-prod" class="fotoprev" style="display:none;max-height:120px;width:100%;object-fit:cover;border-radius:var(--r);">
+                  <div id="esp-icn-prod"><i class="ti ti-package" style="font-size:26px;color:var(--orange);"></i><div style="font-size:11px;color:var(--txt2);margin-top:4px;">Producto</div></div>
+                </div>
+              </div>
+              <input type="file" id="esp-file-master" accept="image/*" capture="environment" style="display:none;" onchange="espProcFoto('master',this)">
+              <input type="file" id="esp-file-prod" accept="image/*" capture="environment" style="display:none;" onchange="espProcFoto('prod',this)">
+            </div>
+
+            <!-- Historial -->
+            <div class="card">
+              <div class="chdr">
+                <div class="ctitle"><i class="ti ti-list-details"></i>Especificaciones registradas</div>
+                <button class="btn btn-sm adm" onclick="expEspecificaciones()"><i class="ti ti-file-spreadsheet"></i>Excel</button>
+              </div>
+              <div class="bgrp" style="margin-bottom:10px;">
+                <select class="fc" id="esp-filtro-cli" style="width:170px;" onchange="renderEspecificaciones()">
+                  <option value="">Todos los clientes</option>
+                </select>
+              </div>
+              <div id="esp-lista"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ QR ═══ -->
       <div class="page" id="page-qr">
         <div class="twocol">
@@ -1873,6 +1970,20 @@ body.role-operador .adm{display:none!important;}
             </table>
           </div>
         </div>
+
+        <!-- Especificaciones -->
+        <div class="card">
+          <div class="chdr">
+            <div class="ctitle"><i class="ti ti-ruler-2"></i>Especificaciones · Medidas</div>
+            <button class="btn btn-sm" onclick="expEspecificaciones()"><i class="ti ti-file-spreadsheet"></i>Excel</button>
+          </div>
+          <div class="twrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>SKU</th><th>Cliente</th><th>Operador</th><th>Máster (L×A×H)</th><th>Producto (L×A×H)</th><th>Fotos</th></tr></thead>
+              <tbody id="tb-mon-especificaciones"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- ═══ CONFIG (admin) ═══ -->
@@ -1950,6 +2061,7 @@ body.role-operador .adm{display:none!important;}
           <option value="inbound">Inbound (recepción)</option>
           <option value="putaway">Putaway (almacenaje)</option>
           <option value="devolucion">Devolución / Retiro</option>
+          <option value="especificaciones">Especificaciones (medidas)</option>
           <option value="otro">Otro</option>
         </select></div>
       <div class="fg"><label class="fl">Urgencia</label>
@@ -2099,7 +2211,7 @@ const S = {
 
   /* Datos en vivo (alimentados por listeners de Firestore) */
   clientes:[], skus:[], ubicaciones:[], operadores:[], tareas:[], conteos:[], checkins:[], sesiones:[],
-  rastreos:[], tarimas:[], itemsTarima:[], devoluciones:[],
+  rastreos:[], tarimas:[], itemsTarima:[], devoluciones:[], especificaciones:[],
 
   /* Conteo */
   sesionActiva:null, modoConteo:'cruzado', equipo:'1', cItems:[],
@@ -2331,6 +2443,7 @@ const PAGE_NAMES={
   productividad:'Productividad y Bonos',
   inbound:'Inbound · Recepción', putaway:'Putaway · Almacenaje', rastreos:'Rastreos de SKU',
   devoluciones:'Devoluciones · Logística Inversa',
+  especificaciones:'Especificaciones · Medidas',
   'tareas-admin':'Panel de Tareas', 'mis-tareas':'Mis Tareas',
   clientes:'Clientes / SKU', ubicaciones:'Ubicaciones',
   layout:'Layout de Racks', conteo:'Conteos',
@@ -2366,6 +2479,7 @@ function navTo(pageId){
   if (pageId==='putaway')      renderPutawayHome();
   if (pageId==='rastreos')     { poblarRasSel(); renderRastreos(); }
   if (pageId==='devoluciones') renderDevHome();
+  if (pageId==='especificaciones'){ poblarEspSel(); renderEspecificaciones(); }
   if (pageId==='dashboard')    renderDashboard();
   if (pageId==='productividad'){ poblarProdSels(); renderProductividadEjec(); }
   if (pageId==='monitor')      renderMonitor();
@@ -2438,6 +2552,7 @@ function iniciarListeners(){
   listen('items_tarima',docs=>{ S.itemsTarima=docs;refreshUI('items_tarima');});
   listen('rastreos',   docs=>{ S.rastreos=docs;   refreshUI('rastreos');});
   listen('devoluciones',docs=>{ S.devoluciones=docs;refreshUI('devoluciones');});
+  listen('especificaciones',docs=>{ S.especificaciones=docs;refreshUI('especificaciones');});
 }
 function detenerListeners(){ S.listeners.forEach(u=>{try{u()}catch(e){}}); S.listeners=[]; }
 
@@ -2454,6 +2569,7 @@ function refreshUI(origen){
   if (act==='page-putaway'  && (origen==='tarimas'||origen==='items_tarima')) renderPutawayHome();
   if (act==='page-rastreos'    && origen==='rastreos')  renderRastreos();
   if (act==='page-devoluciones'&& origen==='devoluciones') renderDevHome();
+  if (act==='page-especificaciones'&& origen==='especificaciones') renderEspecificaciones();
   if (origen==='rastreos')                             actualizarBadgeRastreos();
   if (origen==='devoluciones')                         actualizarBadgeDev();
   if (act==='page-conteo'      && origen==='conteos')  { renderConteoList(); renderValidacionLive(); renderUbicsRegistradas(); }
@@ -3007,9 +3123,13 @@ function renderMisTareas(){
 function botonAccionTarea(t){
   if (t.estatus==='completada') return '';
   const cfg={
-    checkin:  ['ti-scan','Abrir Check-In'],
-    conteo:   ['ti-arrows-cross','Abrir Conteo Cruzado'],
-    dirigido: ['ti-route','Abrir Conteo Dirigido'],
+    checkin:   ['ti-scan','Abrir Check-In'],
+    conteo:    ['ti-arrows-cross','Abrir Conteo Cruzado'],
+    dirigido:  ['ti-route','Abrir Conteo Dirigido'],
+    inbound:   ['ti-package-import','Abrir Inbound'],
+    putaway:   ['ti-forklift','Abrir Putaway'],
+    devolucion:['ti-arrow-back-up','Abrir Devolución'],
+    especificaciones:['ti-ruler-2','Abrir Especificaciones'],
   }[t.tipo];
   if (!cfg) return '';
   return `<button class="btn btn-p btn-sm"
@@ -3068,6 +3188,13 @@ function abrirTareaDesdeOp(id){
     if (info) info.style.display='flex';
     if (txt)  txt.textContent=`Tarea asignada: "${t.titulo}" — procesa la devolución/retiro y clasifícala.`;
     navTo('devoluciones');
+
+  } else if (t.tipo==='especificaciones'){
+    const info=document.getElementById('esp-tarea-info');
+    const txt =document.getElementById('esp-tarea-txt');
+    if (info) info.style.display='flex';
+    if (txt)  txt.textContent=`Tarea asignada: "${t.titulo}" — toma medidas y fotos de caja máster y producto.`;
+    navTo('especificaciones');
   }
 }
 
@@ -4690,6 +4817,141 @@ function actualizarBadgeDev(){
   if (b){ b.textContent=proc; b.style.display=proc>0?'inline-flex':'none'; }
 }
 
+/* ══════════ ESPECIFICACIONES (medidas + fotos) ══════════
+   Toma de medidas L×A×H de caja máster y producto, con fotos
+   de ambos (a Drive si el puente está configurado). */
+
+const ESP = { fotoMaster:null, fotoProd:null };
+
+function poblarEspSel(){
+  ['esp-cli','esp-filtro-cli'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const cur=el.value;
+    const first=id==='esp-filtro-cli'?'<option value="">Todos los clientes</option>':'<option value="">Selecciona cliente</option>';
+    el.innerHTML=first+S.clientes.map(c=>`<option value="${c.id||c.id_odoo}">${c.nombre}</option>`).join('');
+    if (cur) el.value=cur;
+  });
+}
+
+function espProcFoto(cual,inp){
+  const f=inp.files?.[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    const data=e.target.result;
+    if (cual==='master') ESP.fotoMaster=data; else ESP.fotoProd=data;
+    const prev=document.getElementById('esp-prev-'+cual);
+    const icn=document.getElementById('esp-icn-'+cual);
+    if (prev){ prev.src=data; prev.style.display='block'; }
+    if (icn) icn.style.display='none';
+    toast('Foto lista','success');
+  };
+  r.readAsDataURL(f);
+}
+
+async function guardarEspecificacion(){
+  const cliId=document.getElementById('esp-cli')?.value||'';
+  const sku=(document.getElementById('esp-sku')?.value||'').trim();
+  if (!cliId){ toast('Selecciona el cliente','warn'); return; }
+  if (!sku){ toast('Indica el SKU','warn'); return; }
+
+  const num=id=>Number(document.getElementById(id)?.value)||0;
+  const masterL=num('esp-m-largo'), masterA=num('esp-m-ancho'), masterH=num('esp-m-alto');
+  const prodL=num('esp-p-largo'), prodA=num('esp-p-ancho'), prodH=num('esp-p-alto');
+  if (!masterL && !prodL){ toast('Captura al menos una medida (caja máster o producto)','warn'); return; }
+
+  const btn=document.getElementById('btn-esp');
+  if (btn){ btn.disabled=true; btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Guardando…'; }
+
+  const cliNombre=S.clientes.find(c=>String(c.id||c.id_odoo)===String(cliId))?.nombre||cliId;
+  const id='ESP-'+Date.now();
+
+  /* Subir fotos a Drive si hay puente */
+  let fotoMaster=ESP.fotoMaster||'', fotoProd=ESP.fotoProd||'';
+  if (S.driveProxy){
+    if (btn) btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Subiendo fotos…';
+    if (ESP.fotoMaster){ const u=await subirFotoDrive(ESP.fotoMaster,'Especificaciones',`${id}_master`); if(u) fotoMaster=u; }
+    if (ESP.fotoProd){ const u=await subirFotoDrive(ESP.fotoProd,'Especificaciones',`${id}_producto`); if(u) fotoProd=u; }
+    if (btn) btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Guardando…';
+  }
+
+  /* Volumen de caja máster en cm³ → factor útil para logística */
+  const volMaster=masterL*masterA*masterH;
+
+  try {
+    await fsSet(`especificaciones/${id}`,{
+      clienteId:cliId, cliente:cliNombre,
+      sku, descripcion:document.getElementById('esp-desc')?.value||'',
+      master:{ largo:masterL, ancho:masterA, alto:masterH,
+        peso:num('esp-m-peso'), piezas:num('esp-m-pzs'), volumen_cm3:volMaster },
+      producto:{ largo:prodL, ancho:prodA, alto:prodH, peso:num('esp-p-peso') },
+      fotoMaster, fotoProd,
+      observaciones:document.getElementById('esp-obs')?.value||'',
+      almacen:S.almacen||'',
+      tomadoPor:S.nombre, fecha:new Date().toISOString(),
+    });
+    toast('✅ Especificación guardada','success');
+
+    /* Completar tarea si venía de una */
+    S.tareas=await fsGet('tareas');
+    await completarTareaActiva(['especificaciones','otro']);
+
+    /* Limpiar */
+    ['esp-sku','esp-desc','esp-m-largo','esp-m-ancho','esp-m-alto','esp-m-peso','esp-m-pzs',
+     'esp-p-largo','esp-p-ancho','esp-p-alto','esp-p-peso','esp-obs'].forEach(x=>{const e=document.getElementById(x); if(e) e.value='';});
+    ESP.fotoMaster=null; ESP.fotoProd=null;
+    ['master','prod'].forEach(c=>{
+      const p=document.getElementById('esp-prev-'+c); const i=document.getElementById('esp-icn-'+c);
+      if(p){ p.style.display='none'; p.src=''; } if(i) i.style.display='block';
+    });
+  } catch(e){ toast('❌ Error: '+e.message,'error'); }
+  finally { if(btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-device-floppy"></i>Guardar especificación'; } }
+}
+
+function renderEspecificaciones(){
+  const el=document.getElementById('esp-lista'); if(!el) return;
+  const cliF=document.getElementById('esp-filtro-cli')?.value||'';
+  let lista=(S.especificaciones||[]).filter(enAlmacen);
+  if (cliF) lista=lista.filter(e=>String(e.clienteId)===cliF);
+  lista.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  if (!lista.length){ el.innerHTML='<div class="empty"><i class="ti ti-ruler-2"></i><p>Sin especificaciones registradas.</p></div>'; return; }
+  el.innerHTML=lista.map(e=>{
+    const m=e.master||{}, p=e.producto||{};
+    const dim=(o)=>o.largo?`${o.largo}×${o.ancho}×${o.alto} cm`:'—';
+    return `<div style="border:1px solid var(--border);border-radius:var(--r);padding:11px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:6px;flex-wrap:wrap;">
+        <code style="font-size:12px;font-weight:700;">${e.sku}</code>
+        <span style="font-size:10px;color:var(--txt3);">${e.cliente||'—'}</span>
+      </div>
+      ${e.descripcion?`<div style="font-size:11px;color:var(--txt2);margin-bottom:4px;">${e.descripcion}</div>`:''}
+      <div style="display:flex;gap:14px;font-size:11px;flex-wrap:wrap;">
+        <span><strong style="color:var(--blue);">Máster:</strong> ${dim(m)}${m.peso?` · ${m.peso}kg`:''}${m.piezas?` · ${m.piezas} pzs`:''}</span>
+      </div>
+      <div style="display:flex;gap:14px;font-size:11px;flex-wrap:wrap;margin-top:2px;">
+        <span><strong style="color:var(--orange);">Producto:</strong> ${dim(p)}${p.peso?` · ${p.peso}kg`:''}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:6px;align-items:center;">
+        ${e.fotoMaster?`<a href="${e.fotoMaster}" target="_blank" class="est est-proceso" style="text-decoration:none;"><i class="ti ti-photo"></i> Máster</a>`:''}
+        ${e.fotoProd?`<a href="${e.fotoProd}" target="_blank" class="est est-proceso" style="text-decoration:none;"><i class="ti ti-photo"></i> Producto</a>`:''}
+        <span style="font-size:10px;color:var(--txt3);margin-left:auto;">${e.tomadoPor||'—'} · ${(e.fecha||'').split('T')[0]}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function expEspecificaciones(){
+  const rows=[['Fecha','Cliente','SKU','Descripción',
+    'Máster Largo','Máster Ancho','Máster Alto','Máster Peso','Pzs/Máster','Máster Vol cm³',
+    'Prod Largo','Prod Ancho','Prod Alto','Prod Peso','Observaciones','Tomó']];
+  (S.especificaciones||[]).filter(enAlmacen).forEach(e=>{
+    const m=e.master||{}, p=e.producto||{};
+    rows.push([(e.fecha||'').split('T')[0],e.cliente||'',e.sku||'',e.descripcion||'',
+      m.largo||0,m.ancho||0,m.alto||0,m.peso||0,m.piezas||0,m.volumen_cm3||0,
+      p.largo||0,p.ancho||0,p.alto||0,p.peso||0,e.observaciones||'',e.tomadoPor||'']);
+  });
+  if (rows.length<2){ toast('Sin especificaciones para exportar','warn'); return; }
+  expXLSX(rows,'Especificaciones_iFull.xlsx');
+}
+
 function filtrarSKUs(){
   const cli=document.getElementById('flt-cli')?.value||'';
   const q=(document.getElementById('flt-sku')?.value||'').toLowerCase().trim();
@@ -6014,6 +6276,23 @@ function renderMonitorOperaciones(){
         <td><span class="est ${d.estado==='cerrado'?'est-completada':'est-proceso'}">${d.estado||'—'}</span></td>
       </tr>`).join(''):'<tr><td colspan="7"><div class="empty"><i class="ti ti-arrow-back-up"></i><p>Sin devoluciones con ese filtro</p></div></td></tr>';
   }
+
+  /* Especificaciones */
+  const tbEsp=document.getElementById('tb-mon-especificaciones');
+  if (tbEsp){
+    const esp=(S.especificaciones||[]).filter(fOk).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+    const dim=o=>o&&o.largo?`${o.largo}×${o.ancho}×${o.alto}`:'—';
+    tbEsp.innerHTML=esp.length?esp.map(e=>`
+      <tr>
+        <td style="font-size:11px;font-family:var(--mono);">${(e.fecha||'').split('T')[0]}</td>
+        <td><code style="font-size:11px;">${e.sku}</code></td>
+        <td style="font-size:11px;">${e.cliente||'—'}</td>
+        <td style="font-size:11px;">${e.tomadoPor||'—'}</td>
+        <td style="font-family:var(--mono);font-size:11px;">${dim(e.master)}</td>
+        <td style="font-family:var(--mono);font-size:11px;">${dim(e.producto)}</td>
+        <td>${e.fotoMaster?'📷':''}${e.fotoProd?'📷':''}${(!e.fotoMaster&&!e.fotoProd)?'—':''}</td>
+      </tr>`).join(''):'<tr><td colspan="7"><div class="empty"><i class="ti ti-ruler-2"></i><p>Sin especificaciones con ese filtro</p></div></td></tr>';
+  }
 }
 
 /* Exports del día por operación */
@@ -6370,16 +6649,23 @@ async function guardarDrive(){
 
 async function probarDrive(){
   if (!S.driveProxy){ toast('Guarda la URL del puente primero','warn'); return; }
-  toast('Probando conexión…','info');
+  toast('Probando conexión y creando carpeta…','info');
   try {
     const res=await fetch(S.driveProxy,{
       method:'POST', headers:{'Content-Type':'text/plain'},
       body:JSON.stringify({action:'ping'}),
     });
     const data=await res.json();
-    if (data.ok) toast('✅ Puente de Drive activo','success');
-    else toast('Respuesta inesperada: '+JSON.stringify(data),'warn');
-  } catch(e){ toast('❌ No se pudo conectar: '+e.message,'error'); }
+    if (data.ok){
+      toast('✅ Puente activo. Carpeta "'+(data.carpeta||'iFull HEART LMS')+'" lista en tu Drive.','success');
+    } else if (data.error){
+      toast('⚠️ El puente respondió con error: '+data.error,'error');
+    } else {
+      toast('Respuesta inesperada. Revisa que el despliegue sea "Cualquier usuario".','warn');
+    }
+  } catch(e){
+    toast('❌ No se pudo conectar. Verifica la URL y que el Apps Script esté desplegado como Aplicación web con acceso "Cualquier usuario".','error');
+  }
 }
 
 /* Comprime una imagen base64 a un tamaño razonable antes de subir.
@@ -6517,7 +6803,7 @@ function toast(msg,tipo='info'){
    Dashboard para presentar a dirección: KPIs, gráficos y ranking
    de puntos por operador (resultados × dificultad de tarea). */
 
-const PUNTOS_BASE = { checkin:10, dirigido:15, cruzado:20, tercero:25, inbound:15, putaway:12, rastreo:8, devolucion:14 };
+const PUNTOS_BASE = { checkin:10, dirigido:15, cruzado:20, tercero:25, inbound:15, putaway:12, rastreo:8, devolucion:14, especificaciones:10 };
 
 /* Puntos por actividad según su naturaleza:
    - Conteo/check-in/inbound: esfuerzo = piezas/ítems verificados (con bono eficiencia)
@@ -6525,7 +6811,7 @@ const PUNTOS_BASE = { checkin:10, dirigido:15, cruzado:20, tercero:25, inbound:1
 function puntosDe(a, mediaP){
   let base=PUNTOS_BASE[a.tipo]||10;
 
-  if (a.tipo==='putaway' || a.tipo==='rastreo' || a.tipo==='devolucion'){
+  if (a.tipo==='putaway' || a.tipo==='rastreo' || a.tipo==='devolucion' || a.tipo==='especificaciones'){
     /* Actividades de movimiento/gestión: puntos planos, no escalan por piezas */
     return base;
   }
@@ -6644,6 +6930,15 @@ function construirActividades(){
     acts.push({tipo:'devolucion', usuario:d.procesadoPor||'—', cliente:d.cliente||'',
       clienteId:d.clienteId||'', almacen:d.almacen||'', piezas,
       inicio:d.fecha, fin:d.fecha, ubicaciones:1, fecha:d.fecha});
+  });
+
+  /* Especificaciones tomadas: esfuerzo = toma de medidas (plano). */
+  (S.especificaciones||[]).forEach(e=>{
+    if (!enRango(e.fecha,rango)) return;
+    if (!enAlmacen(e)) return;
+    acts.push({tipo:'especificaciones', usuario:e.tomadoPor||'—', cliente:e.cliente||'',
+      clienteId:e.clienteId||'', almacen:e.almacen||'', piezas:0,
+      inicio:e.fecha, fin:e.fecha, ubicaciones:1, fecha:e.fecha});
   });
 
   return acts.filter(a=>
