@@ -9,7 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <!-- ══════════════════════════════════════════════════
@@ -307,6 +309,40 @@ body.role-operador .adm{display:none!important;}
 .lerr{font-size:11px;color:var(--red);min-height:15px;margin-bottom:8px;}
 .lnote{text-align:center;margin-top:14px;font-size:10px;color:var(--txt3);line-height:1.55;}
 .lnote strong{color:var(--txt2);}
+
+/* ── Autocompletado de SKU ── */
+.ac-wrap{position:relative;}
+.ac-list{position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);box-shadow:var(--shm);max-height:240px;overflow-y:auto;margin-top:2px;display:none;}
+.ac-list.open{display:block;}
+.ac-item{padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:2px;}
+.ac-item:last-child{border-bottom:none;}
+.ac-item:hover,.ac-item.sel{background:var(--blue-l);}
+.ac-sku{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--blue);}
+.ac-desc{font-size:11px;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ac-meta{font-size:9px;color:var(--txt3);font-family:var(--mono);}
+.ac-empty{padding:10px 12px;font-size:11px;color:var(--txt3);text-align:center;}
+
+/* ── Plano del CEDIS ── */
+.cedis{display:grid;gap:5px;min-width:560px;font-size:9px;}
+.cedis-zona{border-radius:6px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:700;letter-spacing:.03em;padding:6px 4px;border:1px solid var(--border2);background:var(--bg3);color:var(--txt2);text-transform:uppercase;}
+.cedis-rack{border-radius:5px;padding:7px 6px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--txt);font-weight:700;cursor:pointer;transition:all .12s;display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.cedis-rack:hover{border-color:var(--orange);background:var(--orange-l);transform:translateX(2px);}
+.cedis-rack.sel{border-color:var(--orange);background:var(--orange-l);box-shadow:0 0 0 2px rgba(244,121,32,.2);}
+.cedis-rack .rk-name{font-size:11px;}
+.cedis-rack .rk-meta{font-size:8px;color:var(--txt3);font-weight:600;}
+.cedis-pasillo{font-size:8px;color:var(--txt3);font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:2px 4px;}
+.cedis-block{border:1.5px solid var(--blue);border-radius:6px;background:var(--blue-l);color:var(--blue);padding:8px;cursor:pointer;transition:all .12s;font-weight:700;text-align:center;}
+.cedis-block:hover{background:var(--blue);color:#fff;}
+.cedis-special{border:1px dashed var(--border2);border-radius:6px;background:transparent;color:var(--txt3);padding:8px 4px;text-align:center;font-weight:600;font-size:8px;text-transform:uppercase;letter-spacing:.05em;}
+
+/* Posiciones de un rack (al expandir) */
+.posgrid{display:grid;gap:3px;margin-top:8px;}
+.poscell{aspect-ratio:1;min-width:26px;border-radius:4px;border:1px solid var(--border2);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:8px;cursor:pointer;font-family:var(--mono);transition:all .1s;color:var(--txt2);}
+.poscell:hover{border-color:var(--orange);background:var(--orange-l);transform:scale(1.1);z-index:2;}
+.poscell.ocup{background:var(--blue-l);border-color:var(--blue);color:var(--blue);font-weight:700;}
+.poscell.sel{border:2px solid var(--orange);box-shadow:0 0 0 2px rgba(244,121,32,.2);}
+.nivelrow{display:flex;gap:3px;align-items:center;margin-bottom:3px;}
+.nivellbl{font-size:8px;font-weight:700;color:var(--txt3);width:24px;flex-shrink:0;font-family:var(--mono);}
 </style>
 </head>
 <body>
@@ -412,6 +448,9 @@ body.role-operador .adm{display:none!important;}
       <div class="slbl adm">Principal</div>
       <button class="nav-item adm active" data-page="dashboard">
         <i class="ti ti-dashboard"></i><span class="nlbl">Dashboard</span>
+      </button>
+      <button class="nav-item adm" data-page="productividad">
+        <i class="ti ti-chart-histogram"></i><span class="nlbl">Productividad</span>
       </button>
 
       <div class="slbl adm">Gestión</div>
@@ -530,6 +569,98 @@ body.role-operador .adm{display:none!important;}
         </div>
       </div>
 
+      <!-- ═══ PRODUCTIVIDAD EJECUTIVA (admin) ═══ -->
+      <div class="page" id="page-productividad">
+        <div class="card" style="margin-bottom:14px;">
+          <div class="chdr" style="margin-bottom:0;">
+            <div class="bgrp">
+              <select class="fc" id="prod-rango" style="width:150px;" onchange="renderProductividadEjec()">
+                <option value="hoy">Hoy</option>
+                <option value="semana" selected>Últimos 7 días</option>
+                <option value="mes">Últimos 30 días</option>
+                <option value="todo">Todo</option>
+              </select>
+              <select class="fc" id="prod-op" style="width:170px;" onchange="renderProductividadEjec()">
+                <option value="">Todos los operadores</option>
+              </select>
+              <select class="fc" id="prod-cli" style="width:170px;" onchange="renderProductividadEjec()">
+                <option value="">Todos los clientes</option>
+              </select>
+              <select class="fc" id="prod-act" style="width:160px;" onchange="renderProductividadEjec()">
+                <option value="">Todas las actividades</option>
+                <option value="cruzado">Conteo Cruzado</option>
+                <option value="dirigido">Conteo Dirigido</option>
+                <option value="checkin">Check-In</option>
+              </select>
+            </div>
+            <button class="btn btn-sm btn-p" onclick="expProductividadEjec()"><i class="ti ti-file-spreadsheet"></i>Exportar</button>
+          </div>
+        </div>
+
+        <!-- KPIs grandes -->
+        <div class="mgrid">
+          <div class="mcard"><div class="macc" style="background:var(--blue);"></div>
+            <div class="mlbl">Actividades realizadas</div><div class="mval" id="pe-actividades">—</div>
+            <div class="msub" id="pe-actividades-sub">en el periodo</div></div>
+          <div class="mcard"><div class="macc" style="background:var(--orange);"></div>
+            <div class="mlbl">Piezas contadas</div><div class="mval" id="pe-piezas">—</div>
+            <div class="msub">total acumulado</div></div>
+          <div class="mcard"><div class="macc" style="background:var(--teal);"></div>
+            <div class="mlbl">Promedio piezas/hora</div><div class="mval" id="pe-pph">—</div>
+            <div class="msub">eficiencia del equipo</div></div>
+          <div class="mcard"><div class="macc" style="background:var(--green);"></div>
+            <div class="mlbl">Tareas completadas</div><div class="mval" id="pe-tareas">—</div>
+            <div class="msub">en el periodo</div></div>
+          <div class="mcard"><div class="macc" style="background:var(--purple);"></div>
+            <div class="mlbl">Puntos del equipo</div><div class="mval" id="pe-puntos">—</div>
+            <div class="msub">bonificación acumulada</div></div>
+          <div class="mcard"><div class="macc" style="background:var(--red);"></div>
+            <div class="mlbl">Precisión conteos</div><div class="mval" id="pe-precision">—</div>
+            <div class="msub">sin discrepancias</div></div>
+        </div>
+
+        <div class="twocol">
+          <div class="card">
+            <div class="chdr"><div class="ctitle"><i class="ti ti-chart-bar"></i>Piezas contadas por operador</div></div>
+            <div style="height:260px;"><canvas id="chart-piezas"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="chdr"><div class="ctitle"><i class="ti ti-chart-donut"></i>Distribución por actividad</div></div>
+            <div style="height:260px;"><canvas id="chart-actividades"></canvas></div>
+          </div>
+        </div>
+
+        <div class="twocol">
+          <div class="card">
+            <div class="chdr"><div class="ctitle"><i class="ti ti-chart-line"></i>Actividad diaria</div></div>
+            <div style="height:240px;"><canvas id="chart-tendencia"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="chdr"><div class="ctitle"><i class="ti ti-gauge"></i>Eficiencia (piezas/hora) por operador</div></div>
+            <div style="height:240px;"><canvas id="chart-eficiencia"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Tabla de bonificación / ranking -->
+        <div class="card">
+          <div class="chdr">
+            <div class="ctitle"><i class="ti ti-trophy"></i>Ranking de bonificación por operador</div>
+            <span style="font-size:10px;color:var(--txt2);">Puntos por resultados × dificultad de tarea</span>
+          </div>
+          <div class="twrap">
+            <table>
+              <thead><tr><th>#</th><th>Operador</th><th>Almacén</th><th>Actividades</th><th>Piezas</th><th>Pzs/h</th><th>Precisión</th><th>Puntos</th><th>Nivel</th></tr></thead>
+              <tbody id="tb-ranking"></tbody>
+            </table>
+          </div>
+          <div style="font-size:10px;color:var(--txt3);margin-top:10px;line-height:1.6;">
+            <strong>Sistema de puntos:</strong> cada actividad otorga puntos base según dificultad (Check-In 10 · Conteo Dirigido 15 · Conteo Cruzado 20 · 3er conteo 25),
+            multiplicados por bono de eficiencia (piezas/hora sobre la media) y bono de precisión (conteos sin discrepancia).
+            Niveles: 🥉 Bronce (0–500) · 🥈 Plata (501–1500) · 🥇 Oro (1501–3000) · 💎 Diamante (3000+).
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ OPERADORES (admin) ═══ -->
       <div class="page" id="page-operadores">
         <div class="card">
@@ -626,12 +757,13 @@ body.role-operador .adm{display:none!important;}
             <div class="bgrp">
               <select class="fc" id="flt-cli" style="width:170px;" onchange="filtrarSKUs()"><option value="">Todos los clientes</option></select>
               <input class="fc" id="flt-sku" placeholder="Buscar SKU…" style="width:150px;" oninput="filtrarSKUs()">
+              <button class="btn btn-sm btn-p" onclick="abrirModalSKU()"><i class="ti ti-plus"></i>Agregar SKU</button>
             </div>
           </div>
           <div class="twrap">
             <table>
-              <thead><tr><th>Cliente</th><th>SKU</th><th>Descripción</th><th>A mano</th><th>Unidad</th><th>Ubicación</th></tr></thead>
-              <tbody id="tb-skus"><tr><td colspan="6"><div class="empty"><i class="ti ti-package"></i><p>Sin SKUs. Conecta Odoo en Configuración.</p></div></td></tr></tbody>
+              <thead><tr><th>Cliente</th><th>SKU</th><th>Descripción</th><th>A mano</th><th>Unidad</th><th>Ubicación</th><th></th></tr></thead>
+              <tbody id="tb-skus"><tr><td colspan="7"><div class="empty"><i class="ti ti-package"></i><p>Sin SKUs. Agrega manualmente o conecta Odoo.</p></div></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -639,51 +771,53 @@ body.role-operador .adm{display:none!important;}
 
       <!-- ═══ UBICACIONES (admin) ═══ -->
       <div class="page" id="page-ubicaciones">
+        <div class="alert al-info">
+          <i class="ti ti-map-pin"></i>
+          <div>La estructura de ubicaciones (racks A–U, 75 posiciones × 6 niveles) refleja el CEDIS físico. El contenido real (qué SKU/cantidad por posición) vive en <strong>Odoo</strong> y se consulta en vivo desde el módulo <strong>Layout</strong>.</div>
+        </div>
         <div class="card">
           <div class="chdr">
-            <div class="ctitle"><i class="ti ti-map-pin"></i>Catálogo de ubicaciones</div>
-            <button class="btn btn-sm btn-p" onclick="navTo('layout')"><i class="ti ti-plus"></i>Nueva</button>
+            <div class="ctitle"><i class="ti ti-layout-grid"></i>Estructura del almacén</div>
+            <button class="btn btn-sm btn-p" onclick="navTo('layout')"><i class="ti ti-map"></i>Ver plano interactivo</button>
           </div>
-          <div class="twrap">
-            <table>
-              <thead><tr><th>Código</th><th>Rack</th><th>Pasillo</th><th>Nivel</th><th>Zona</th><th>Estado</th><th></th></tr></thead>
-              <tbody id="tb-ubic"></tbody>
-            </table>
-          </div>
+          <div id="ubic-resumen"></div>
         </div>
       </div>
 
       <!-- ═══ LAYOUT RACKS ═══ -->
       <div class="page" id="page-layout">
-        <div class="twocol">
-          <div class="card">
-            <div class="chdr">
-              <div class="ctitle"><i class="ti ti-layout-grid"></i>Mapa de racks</div>
-              <select class="fc" style="width:85px;" id="sel-rack" onchange="renderRack()">
-                <option>A</option><option>B</option><option>C</option><option>D</option>
+        <div class="alert al-info">
+          <i class="ti ti-map"></i>
+          <div>Plano del CEDIS. Selecciona un cliente y toca un rack o bloque para ver sus posiciones. Toca una posición para consultar qué SKU y cantidades contiene.</div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px;">
+          <div class="chdr" style="margin-bottom:0;">
+            <div class="bgrp">
+              <select class="fc" id="lay-cli" style="width:220px;" onchange="onLayCliente()">
+                <option value="">— Selecciona cliente —</option>
               </select>
+              <div class="ac-wrap" style="width:200px;">
+                <input class="fc" id="lay-buscar" placeholder="Ir a ubicación: A/25/N2" autocomplete="off"
+                       onkeydown="if(event.key==='Enter')buscarUbicacion()">
+              </div>
+              <button class="btn btn-sm btn-p" onclick="buscarUbicacion()"><i class="ti ti-search"></i>Consultar</button>
+              <button class="btn btn-sm" onclick="abrirScanner('lay-buscar')"><i class="ti ti-scan"></i></button>
             </div>
-            <div id="rack-cont" style="overflow-x:auto;"></div>
+            <span style="font-size:11px;color:var(--txt2);" id="lay-cli-info">21 racks (A–U) disponibles para todos los clientes</span>
+          </div>
+        </div>
+
+        <div class="twocol" style="grid-template-columns:1.3fr 1fr;">
+          <div class="card">
+            <div class="chdr"><div class="ctitle"><i class="ti ti-layout-grid"></i>Plano del almacén</div>
+              <span style="font-size:10px;color:var(--txt2);">Toca un rack o bloque</span></div>
+            <div id="cedis-plano" style="overflow-x:auto;"></div>
           </div>
           <div>
-            <div class="card" id="cell-det">
-              <div class="chdr"><div class="ctitle"><i class="ti ti-info-circle"></i>Detalle de celda</div></div>
-              <p style="font-size:12px;color:var(--txt2);">Selecciona una celda del rack.</p>
-            </div>
-            <div class="card adm" style="flex-direction:column;">
-              <div class="chdr"><div class="ctitle"><i class="ti ti-plus"></i>Nueva ubicación</div></div>
-              <div class="frow c3">
-                <div class="fg"><label class="fl">Rack</label>
-                  <select class="fc" id="new-rack"><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
-                <div class="fg"><label class="fl">Pasillo</label><input class="fc" type="number" id="new-pasillo" placeholder="3" min="1" max="99"></div>
-                <div class="fg"><label class="fl">Nivel</label><input class="fc" type="number" id="new-nivel" placeholder="2" min="1" max="10"></div>
-              </div>
-              <div class="frow c2">
-                <div class="fg"><label class="fl">Zona</label>
-                  <select class="fc" id="new-zona"><option>General</option><option>Refrigerado</option><option>Valor alto</option><option>Granel</option></select></div>
-                <div class="fg"><label class="fl">Cap. (kg)</label><input class="fc" type="number" id="new-cap" value="500" min="1"></div>
-              </div>
-              <button class="btn btn-p" onclick="crearUbicacion()"><i class="ti ti-plus"></i>Crear ubicación</button>
+            <div class="card" id="lay-detalle">
+              <div class="chdr"><div class="ctitle"><i class="ti ti-info-circle"></i>Detalle</div></div>
+              <p style="font-size:12px;color:var(--txt2);">Selecciona un cliente y toca un rack o bloque del plano.</p>
             </div>
           </div>
         </div>
@@ -730,8 +864,15 @@ body.role-operador .adm{display:none!important;}
                   <button class="btn btn-sm" onclick="abrirScanner('cnt-ubic')" aria-label="Escanear ubicación" title="Escanear con cámara"><i class="ti ti-scan"></i></button>
                 </div></div>
               <div id="c-items-list" style="margin-bottom:10px;"></div>
-              <div style="display:flex;gap:8px;margin-bottom:12px;">
-                <input class="fc" id="c-sku" placeholder="SKU" style="flex:2;" onkeydown="if(event.key==='Enter')addItem()">
+              <div style="display:flex;gap:8px;margin-bottom:12px;align-items:flex-start;">
+                <div class="ac-wrap" style="flex:2;">
+                  <input class="fc" id="c-sku" placeholder="SKU o descripción…" autocomplete="off"
+                         oninput="acBuscar('c-sku',this.value)"
+                         onkeydown="acNav(event,'c-sku')"
+                         onfocus="acBuscar('c-sku',this.value)"
+                         onblur="setTimeout(()=>acCerrar('c-sku'),150)">
+                  <div class="ac-list" id="ac-c-sku"></div>
+                </div>
                 <button class="btn btn-sm" onclick="abrirScanner('c-sku')" aria-label="Escanear SKU" title="Escanear con cámara"><i class="ti ti-scan"></i></button>
                 <input class="fc" id="c-qty" placeholder="Cant." type="number" min="0" style="flex:1;" onkeydown="if(event.key==='Enter')addItem()">
                 <button class="btn btn-sm btn-p" onclick="addItem()" aria-label="Agregar"><i class="ti ti-plus"></i></button>
@@ -826,7 +967,7 @@ body.role-operador .adm{display:none!important;}
             <div class="card">
               <div class="chdr"><div class="ctitle"><i class="ti ti-qrcode"></i>QR del pallet</div></div>
               <div class="qrbox">
-                <canvas id="qr-ci" width="200" height="200"></canvas>
+                <div id="qr-ci" style="width:200px;height:200px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:var(--r);padding:8px;"></div>
                 <div id="qr-ci-lbl" style="font-size:10px;color:var(--txt2);text-align:center;font-family:var(--mono);">—</div>
                 <div class="bgrp">
                   <button class="btn btn-p btn-sm" onclick="dlCanvas('qr-ci','QR-CheckIn.png')"><i class="ti ti-download"></i>Descargar</button>
@@ -868,7 +1009,7 @@ body.role-operador .adm{display:none!important;}
           <div class="card">
             <div class="chdr"><div class="ctitle"><i class="ti ti-eye"></i>Vista previa</div></div>
             <div class="qrbox">
-              <canvas id="qr-gen" width="220" height="220"></canvas>
+              <div id="qr-gen" style="width:220px;height:220px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:var(--r);padding:8px;"></div>
               <div id="qr-gen-lbl" style="font-size:10px;color:var(--txt2);text-align:center;max-width:220px;word-break:break-all;font-family:var(--mono);">Completa los campos</div>
             </div>
             <div class="bgrp" style="margin-top:12px;">
@@ -1047,6 +1188,37 @@ body.role-operador .adm{display:none!important;}
     <div class="bgrp" style="justify-content:flex-end;">
       <button class="btn btn-sm" onclick="cerrarModal('modal-tarea')">Cancelar</button>
       <button class="btn btn-p" id="btn-guardar-tarea" onclick="guardarTarea()"><i class="ti ti-device-floppy"></i>Guardar tarea</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL SKU ═══ -->
+<div class="modal-bg" id="modal-sku">
+  <div class="modal">
+    <div class="mhdr">
+      <div class="mtitle" id="modal-sku-title">Agregar SKU</div>
+      <button class="mclose" onclick="cerrarModal('modal-sku')" aria-label="Cerrar">×</button>
+    </div>
+    <input type="hidden" id="sku-docid">
+    <div class="alert al-info">
+      <i class="ti ti-info-circle"></i>
+      <div>Estos SKUs alimentan el autocompletado de los operadores. Cuando conectes Odoo, se sincronizarán automáticamente con la misma estructura.</div>
+    </div>
+    <div class="frow c2">
+      <div class="fg"><label class="fl">SKU / Código</label><input class="fc" id="sku-codigo" placeholder="ACM-001"></div>
+      <div class="fg"><label class="fl">Cliente</label><select class="fc" id="sku-cliente"></select></div>
+    </div>
+    <div class="fg"><label class="fl">Descripción</label><input class="fc" id="sku-desc" placeholder="Descripción del producto"></div>
+    <div class="frow c3">
+      <div class="fg"><label class="fl">Código de barras</label><input class="fc" id="sku-barcode" placeholder="EAN / UPC"></div>
+      <div class="fg"><label class="fl">Cantidad a mano</label><input class="fc" type="number" id="sku-cant" value="0" min="0"></div>
+      <div class="fg"><label class="fl">Unidad</label><input class="fc" id="sku-unidad" value="PZA"></div>
+    </div>
+    <div class="fg"><label class="fl">Ubicación (opcional)</label><input class="fc" id="sku-ubic" placeholder="A/03/02"></div>
+    <div class="div"></div>
+    <div class="bgrp" style="justify-content:flex-end;">
+      <button class="btn btn-sm" onclick="cerrarModal('modal-sku')">Cancelar</button>
+      <button class="btn btn-p" onclick="guardarSKU()"><i class="ti ti-device-floppy"></i>Guardar SKU</button>
     </div>
   </div>
 </div>
@@ -1348,6 +1520,7 @@ function aplicarRol(){
 /* ══════════ NAVEGACIÓN ══════════ */
 const PAGE_NAMES={
   dashboard:'Dashboard', operadores:'Gestión de Operadores',
+  productividad:'Productividad y Bonos',
   'tareas-admin':'Panel de Tareas', 'mis-tareas':'Mis Tareas',
   clientes:'Clientes / SKU', ubicaciones:'Ubicaciones',
   layout:'Layout de Racks', conteo:'Conteos',
@@ -1373,13 +1546,14 @@ function navTo(pageId){
 
   if (pageId==='clientes')     renderSKUs();
   if (pageId==='ubicaciones')  renderUbicaciones();
-  if (pageId==='layout')       renderRack();
+  if (pageId==='layout')       { poblarLayCli(); renderCedis(); }
   if (pageId==='conteo')       { renderConteoList(); poblarSels(); }
   if (pageId==='qr')           { poblarQRSels(); renderQR(); }
   if (pageId==='operadores')   renderOperadores();
   if (pageId==='tareas-admin') renderTareasAdmin();
   if (pageId==='mis-tareas')   renderMisTareas();
   if (pageId==='dashboard')    renderDashboard();
+  if (pageId==='productividad'){ poblarProdSels(); renderProductividadEjec(); }
   if (pageId==='monitor')      renderMonitor();
 }
 
@@ -1468,7 +1642,7 @@ async function cargarDatos(){
   S.clientes=clientes.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
   S.ubicaciones=ubicaciones;
   poblarSels(); poblarQRSels();
-  renderUbicaciones(); renderRack();
+  renderUbicaciones();
   iniciarListeners();
   /* SKUs en segundo plano */
   fsGet('skus').then(skus=>{ S.skus=skus; renderSKUs(); });
@@ -2108,7 +2282,7 @@ function renderSKUs(datos){
   const skus=datos??S.skus;
   const tb=document.getElementById('tb-skus'); if(!tb) return;
   if (!skus.length){
-    tb.innerHTML='<tr><td colspan="6"><div class="empty"><i class="ti ti-package"></i><p>Sin SKUs. Conecta Odoo en Configuración para sincronizar.</p></div></td></tr>';
+    tb.innerHTML='<tr><td colspan="7"><div class="empty"><i class="ti ti-package"></i><p>Sin SKUs. Agrega manualmente o sincroniza Odoo.</p></div></td></tr>';
     return;
   }
   tb.innerHTML=skus.slice(0,3000).map(s=>`
@@ -2119,89 +2293,358 @@ function renderSKUs(datos){
       <td><strong style="font-family:var(--mono);">${Number(s.cantidad_mano||0).toLocaleString('es-MX')}</strong></td>
       <td style="color:var(--txt2);">${s.unidad||'PZA'}</td>
       <td style="font-family:var(--mono);font-size:11px;">${s.ubicacion||'—'}</td>
+      <td><div class="bgrp">
+        <button class="btn btn-xs" onclick="abrirModalSKU('${s.id}')" aria-label="Editar"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-xs btn-del" onclick="eliminarSKU('${s.id}','${(s.sku||'').replace(/'/g,'')}')" aria-label="Eliminar"><i class="ti ti-trash"></i></button>
+      </div></td>
     </tr>`).join('');
+}
+
+function abrirModalSKU(id){
+  const s=id?S.skus.find(x=>x.id===id):null;
+  document.getElementById('modal-sku-title').textContent=s?'Editar SKU':'Agregar SKU';
+  document.getElementById('sku-docid').value=s?.id||'';
+  document.getElementById('sku-codigo').value=s?.sku||'';
+  document.getElementById('sku-desc').value=s?.descripcion||'';
+  document.getElementById('sku-barcode').value=s?.barcode||'';
+  document.getElementById('sku-cant').value=s?.cantidad_mano||0;
+  document.getElementById('sku-unidad').value=s?.unidad||'PZA';
+  document.getElementById('sku-ubic').value=s?.ubicacion||'';
+  const sel=document.getElementById('sku-cliente');
+  if (sel) sel.innerHTML='<option value="">Sin cliente</option>'+
+    S.clientes.map(c=>`<option value="${c.id||c.id_odoo}" ${String(c.id||c.id_odoo)===String(s?.cliente_id)?'selected':''}>${c.nombre}</option>`).join('');
+  abrirModal('modal-sku');
+}
+
+async function guardarSKU(){
+  const id=document.getElementById('sku-docid').value;
+  const sku=document.getElementById('sku-codigo').value.trim();
+  const desc=document.getElementById('sku-desc').value.trim();
+  const barcode=document.getElementById('sku-barcode').value.trim();
+  const cant=Number(document.getElementById('sku-cant').value)||0;
+  const unidad=document.getElementById('sku-unidad').value.trim()||'PZA';
+  const ubic=document.getElementById('sku-ubic').value.trim().toUpperCase();
+  const cliSel=document.getElementById('sku-cliente');
+  const cliId=cliSel?.value||'';
+  const cliNom=cliId?(cliSel.options[cliSel.selectedIndex]?.text||''):'';
+  if (!sku){ toast('Ingresa el SKU','warn'); return; }
+  const data={sku,descripcion:desc,barcode,cantidad_mano:cant,unidad,ubicacion:ubic,cliente_id:cliId,cliente:cliNom};
+  try {
+    if (id){
+      await fsUpd(`skus/${id}`,data);
+      const idx=S.skus.findIndex(x=>x.id===id);
+      if (idx>=0) S.skus[idx]={...S.skus[idx],...data};
+      toast('SKU actualizado','success');
+    } else {
+      const key=(sku||('SKU-'+Date.now())).replace(/[\/\\\.\#\$\[\]]/g,'_');
+      await fsSet(`skus/${key}`,data);
+      if (!S.skus.some(x=>x.id===key)) S.skus.push({id:key,...data});
+      toast(`SKU "${sku}" agregado`,'success');
+    }
+    cerrarModal('modal-sku');
+    renderSKUs();
+  } catch(e){ toast('Error: '+e.message,'error'); }
+}
+
+async function eliminarSKU(id,sku){
+  if (!confirm(`¿Eliminar el SKU "${sku}"?`)) return;
+  try {
+    await fsDel(`skus/${id}`);
+    S.skus=S.skus.filter(x=>x.id!==id);
+    toast(`"${sku}" eliminado`,'success');
+    renderSKUs();
+  } catch(e){ toast('Error: '+e.message,'error'); }
 }
 
 /* ══════════ UBICACIONES ══════════ */
 function renderUbicaciones(){
-  const tb=document.getElementById('tb-ubic'); if(!tb) return;
-  if (!S.ubicaciones.length){
-    tb.innerHTML='<tr><td colspan="7"><div class="empty"><i class="ti ti-map-pin"></i><p>Sin ubicaciones. Créalas en Layout de Racks.</p></div></td></tr>';
+  const el=document.getElementById('ubic-resumen'); if(!el) return;
+  const totalPos=21*RACK_POSICIONES*RACK_NIVELES;
+  el.innerHTML=`
+    <div class="mgrid" style="margin-bottom:0;">
+      <div class="mcard"><div class="macc" style="background:var(--blue);"></div>
+        <div class="mlbl">Racks</div><div class="mval">21</div><div class="msub">A – U</div></div>
+      <div class="mcard"><div class="macc" style="background:var(--orange);"></div>
+        <div class="mlbl">Posiciones / rack</div><div class="mval">${RACK_POSICIONES}</div><div class="msub">horizontales</div></div>
+      <div class="mcard"><div class="macc" style="background:var(--teal);"></div>
+        <div class="mlbl">Niveles</div><div class="mval">${RACK_NIVELES}</div><div class="msub">N1 – N6</div></div>
+      <div class="mcard"><div class="macc" style="background:var(--green);"></div>
+        <div class="mlbl">Posiciones totales</div><div class="mval" style="font-size:20px;">${totalPos.toLocaleString('es-MX')}</div><div class="msub">por almacén</div></div>
+      <div class="mcard"><div class="macc" style="background:var(--purple);"></div>
+        <div class="mlbl">Bloques PTO</div><div class="mval">6</div><div class="msub">I – VI (piso)</div></div>
+      <div class="mcard"><div class="macc" style="background:var(--amber);"></div>
+        <div class="mlbl">Disponibilidad</div><div class="mval" style="font-size:16px;">Todos</div><div class="msub">21 racks por cliente</div></div>
+    </div>`;
+}
+
+/* ══════════ PLANO DEL CEDIS ══════════
+   Estructura física fiel al plano del almacén iFull.
+   Racks A–U disponibles para todos los clientes (75 posiciones × 6 niveles).
+   Las posiciones se GENERAN (no se almacenan); el contenido se
+   consulta a Odoo en vivo al tocar una posición (pendiente conexión). */
+
+/* Disposición física: pasillos con sus racks (según plano del CEDIS) */
+const CEDIS_LAYOUT = {
+  rackA:    ['A'],
+  pasillos: [
+    { n:1,  racks:['B','C'] },
+    { n:2,  racks:['D','E'] },
+    { n:3,  racks:['F','G'] },
+    { n:4,  racks:['H','I'] },
+    { n:5,  racks:['J','K'] },
+    { n:6,  racks:['L','M'] },
+    { n:7,  racks:['N','O'] },
+    { n:8,  racks:['P','Q'] },
+    { n:9,  racks:['R','S'] },
+    { n:10, racks:['T'] },
+  ],
+  rackU:    ['U'],
+  bloques:  ['I','II','III','IV','V','VI'],  /* Bloques PTO 1-6 (piso) */
+  especiales:['DROP','Devoluciones','Calidad','Packing','Andén 1','Andén 2','Andén 3','Andén 4'],
+};
+
+const RACK_POSICIONES = 75;   /* posiciones horizontales por rack */
+const RACK_NIVELES    = 6;    /* niveles verticales N1–N6 */
+
+let layRackSel=null, layPosSel=null;
+
+function onLayCliente(){
+  const cli=document.getElementById('lay-cli')?.value||'';
+  const info=document.getElementById('lay-cli-info');
+  const nom=S.clientes.find(c=>String(c.id||c.id_odoo)===String(cli))?.nombre||'';
+  if (info) info.textContent=cli?`Cliente: ${nom} · 21 racks (A–U) disponibles`:'21 racks (A–U) disponibles para todos los clientes';
+  renderCedis();
+}
+
+function renderCedis(){
+  const cont=document.getElementById('cedis-plano'); if(!cont) return;
+  const rackRow=(letra)=>{
+    const sel=layRackSel===letra?'sel':'';
+    return `<div class="cedis-rack ${sel}" onclick="selRack('${letra}')">
+      <span class="rk-name">RACK ${letra}</span>
+      <span class="rk-meta">${RACK_POSICIONES}×${RACK_NIVELES}</span>
+    </div>`;
+  };
+
+  let html='<div class="cedis">';
+
+  /* Rack A (arriba, solo) */
+  html+=rackRow('A');
+
+  /* Pasillos con sus racks */
+  CEDIS_LAYOUT.pasillos.forEach(p=>{
+    html+=`<div class="cedis-pasillo">Pasillo ${p.n}</div>`;
+    p.racks.forEach(r=>{ html+=rackRow(r); });
+  });
+
+  /* Rack U */
+  html+=`<div class="cedis-pasillo">Pasillo 11</div>`;
+  html+=rackRow('U');
+
+  /* Bloques de almacenamiento PTO 1-6 */
+  html+='<div class="cedis-pasillo" style="margin-top:6px;">Bloques de almacenamiento (PTO 1–6)</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:5px;">';
+  CEDIS_LAYOUT.bloques.forEach(b=>{
+    html+=`<div class="cedis-block" onclick="selBloque('${b}')">${b}</div>`;
+  });
+  html+='</div>';
+
+  /* Zonas especiales */
+  html+='<div class="cedis-pasillo" style="margin-top:6px;">Zonas operativas</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;">';
+  CEDIS_LAYOUT.especiales.forEach(z=>{
+    html+=`<div class="cedis-special">${z}</div>`;
+  });
+  html+='</div>';
+
+  html+='</div>';
+  cont.innerHTML=html;
+}
+
+function selRack(letra){
+  layRackSel=letra; layPosSel=null;
+  renderCedis();
+  const det=document.getElementById('lay-detalle');
+  if (!det) return;
+  const cli=document.getElementById('lay-cli')?.value||'';
+  const nom=S.clientes.find(c=>String(c.id||c.id_odoo)===String(cli))?.nombre||'';
+
+  /* Generar cuadrícula de posiciones: 6 niveles × 75 posiciones
+     Se muestra por niveles (filas) para ser legible en pantalla. */
+  let grid='';
+  for (let niv=RACK_NIVELES; niv>=1; niv--){
+    grid+='<div class="nivelrow"><span class="nivellbl">N'+niv+'</span>';
+    grid+='<div style="display:grid;grid-template-columns:repeat(15,1fr);gap:3px;flex:1;">';
+    for (let pos=1; pos<=RACK_POSICIONES; pos++){
+      const codigo=`${letra}/${pos}/N${niv}`;
+      grid+=`<div class="poscell" title="${codigo}" onclick="consultarPosicion('${letra}',${pos},${niv})">${pos}</div>`;
+    }
+    grid+='</div></div>';
+  }
+
+  det.innerHTML=`
+    <div class="chdr">
+      <div class="ctitle"><i class="ti ti-stack-2"></i>Rack ${letra}</div>
+      <span class="est est-proceso">${RACK_POSICIONES}×${RACK_NIVELES}</span>
+    </div>
+    ${cli?`<div style="font-size:11px;color:var(--txt2);margin-bottom:10px;">Cliente: <strong>${nom}</strong></div>`
+        :`<div class="alert al-warn" style="margin-bottom:10px;"><i class="ti ti-info-circle"></i><div>Selecciona un cliente arriba para consultar el contenido real.</div></div>`}
+    <div style="font-size:9px;color:var(--txt3);margin-bottom:6px;">Toca una posición para consultar su contenido. Niveles N1 (abajo) → N6 (arriba).</div>
+    <div style="max-height:340px;overflow:auto;">${grid}</div>`;
+}
+
+function selBloque(b){
+  layRackSel=null;
+  renderCedis();
+  const det=document.getElementById('lay-detalle');
+  if (!det) return;
+  /* Bloque PTO: 4 subdivisiones según el plano */
+  det.innerHTML=`
+    <div class="chdr"><div class="ctitle"><i class="ti ti-box"></i>Bloque ${b}</div>
+      <span class="est est-pendiente">PTO</span></div>
+    <div style="font-size:11px;color:var(--txt2);margin-bottom:10px;">Bloque de almacenamiento a piso (PTO ${b}). Subdivisiones 1–4.</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+      ${[1,2,3,4].map(n=>`<div class="poscell ocup" style="aspect-ratio:auto;padding:14px 6px;" onclick="consultarBloque('${b}',${n})">${b}-${n}</div>`).join('')}
+    </div>
+    <div style="font-size:9px;color:var(--txt3);margin-top:8px;">Toca una subdivisión para consultar su contenido.</div>`;
+}
+
+/* ── Consulta de contenido (en vivo desde Odoo cuando esté conectado) ── */
+async function consultarPosicion(rack,pos,niv){
+  const codigo=`${rack}/${pos}/N${niv}`;
+  layPosSel=codigo;
+  document.querySelectorAll('.poscell').forEach(c=>c.classList.toggle('sel',c.title===codigo));
+  mostrarContenidoUbicacion(codigo);
+}
+
+async function consultarBloque(b,n){
+  mostrarContenidoUbicacion(`BLOQUE ${b}-${n}`);
+}
+
+/* Muestra el contenido de una ubicación.
+   HOY: busca en Firestore si hay datos manuales.
+   MAÑANA (Odoo conectado): consulta stock.quant en vivo. */
+async function mostrarContenidoUbicacion(codigo){
+  const det=document.getElementById('lay-detalle');
+  const cli=document.getElementById('lay-cli')?.value||'';
+  const nom=S.clientes.find(c=>String(c.id||c.id_odoo)===String(cli))?.nombre||'';
+  if (!det) return;
+
+  /* Cabecera + estado de carga */
+  det.innerHTML=`
+    <div class="chdr">
+      <div class="ctitle"><i class="ti ti-map-pin"></i><code style="font-size:13px;">${codigo}</code></div>
+      <button class="btn btn-xs" onclick="selRack('${codigo.split('/')[0]}')"><i class="ti ti-arrow-left"></i>Volver</button>
+    </div>
+    ${nom?`<div style="font-size:11px;color:var(--txt2);margin-bottom:10px;">Cliente: <strong>${nom}</strong></div>`:''}
+    <div id="lay-contenido"><div style="text-align:center;padding:20px;"><div class="spin"></div><div style="font-size:11px;color:var(--txt2);margin-top:8px;">Consultando contenido…</div></div></div>`;
+
+  const cont=document.getElementById('lay-contenido');
+
+  /* Si Odoo está conectado, consultar en vivo */
+  if (S.odooProxy){
+    try {
+      const res=await fetch(S.odooProxy,{
+        method:'POST', headers:{'Content-Type':'text/plain'},
+        body:JSON.stringify({action:'getUbicacion', ubicacion:codigo, clienteId:cli, apiKey:S.odooKey}),
+      });
+      const data=await res.json();
+      if (data.error) throw new Error(data.error);
+      pintarContenido(cont,codigo,data.items||[]);
+      return;
+    } catch(e){
+      cont.innerHTML=`<div class="alert al-err" style="margin-bottom:0;"><i class="ti ti-x"></i><div>Error consultando Odoo: ${e.message}</div></div>`;
+      return;
+    }
+  }
+
+  /* Sin Odoo: buscar datos manuales en Firestore o mostrar vacío */
+  const docId=codigo.replace(/[\/\s]/g,'_');
+  const local=S.ubicaciones.find(u=>u.codigo===codigo || u.id===docId);
+  if (local && local.items?.length){
+    pintarContenido(cont,codigo,local.items);
+  } else {
+    cont.innerHTML=`
+      <div class="alert al-info" style="margin-bottom:10px;">
+        <i class="ti ti-plug-connected"></i>
+        <div>Conecta Odoo (Configuración) para ver el contenido real de esta ubicación en vivo.</div>
+      </div>
+      <div class="bgrp">
+        <button class="btn btn-sm btn-p" onclick="irAContar('${codigo}')"><i class="ti ti-clipboard-list"></i>Contar aquí</button>
+        <button class="btn btn-sm" onclick="generarQREsteCodigo('${codigo}')"><i class="ti ti-qrcode"></i>Generar QR</button>
+      </div>`;
+  }
+}
+
+function pintarContenido(cont,codigo,items){
+  if (!items.length){
+    cont.innerHTML=`
+      <div class="alert al-warn" style="margin-bottom:10px;"><i class="ti ti-package-off"></i><div>Ubicación vacía — sin existencias registradas.</div></div>
+      <div class="bgrp"><button class="btn btn-sm btn-p" onclick="irAContar('${codigo}')"><i class="ti ti-clipboard-list"></i>Contar aquí</button></div>`;
     return;
   }
-  tb.innerHTML=S.ubicaciones.map(u=>`
-    <tr>
-      <td><strong style="font-family:var(--mono);font-size:11px;">${u.codigo}</strong></td>
-      <td>${u.rack}</td><td>${u.pasillo}</td><td>${u.nivel}</td>
-      <td><span class="est est-pendiente">${u.zona||'—'}</span></td>
-      <td><span class="est ${u.estado==='libre'?'est-pendiente':'est-proceso'}">${u.estado||'libre'}</span></td>
-      <td><button class="btn btn-xs btn-del" onclick="eliminarUbic('${u.id||u.codigo}','${u.codigo}')" aria-label="Eliminar"><i class="ti ti-trash"></i></button></td>
-    </tr>`).join('');
-}
-
-async function crearUbicacion(){
-  const rack=document.getElementById('new-rack')?.value;
-  const pasillo=String(document.getElementById('new-pasillo')?.value||'').trim();
-  const nivel=String(document.getElementById('new-nivel')?.value||'').trim();
-  const zona=document.getElementById('new-zona')?.value;
-  const cap=Number(document.getElementById('new-cap')?.value)||500;
-  if (!pasillo||!nivel){ toast('Completa pasillo y nivel','warn'); return; }
-  const cod=`${rack}-${pasillo.padStart(2,'0')}-${nivel.padStart(2,'0')}`;
-  if (S.ubicaciones.some(u=>u.codigo===cod)){ toast(`${cod} ya existe`,'warn'); return; }
-  const ubic={codigo:cod,rack,pasillo:Number(pasillo),nivel:Number(nivel),zona,capacidad_kg:cap,estado:'libre',sku_actual:''};
-  try {
-    await fsSet(`ubicaciones/${cod}`,ubic);
-    S.ubicaciones.push({id:cod,...ubic});
-    toast(`Ubicación ${cod} creada`,'success');
-    renderUbicaciones(); renderRack();
-  } catch(e){ toast('Error: '+e.message,'error'); }
-}
-
-async function eliminarUbic(id,cod){
-  if (!confirm(`¿Eliminar ubicación ${cod}?`)) return;
-  try {
-    await fsDel(`ubicaciones/${id}`);
-    S.ubicaciones=S.ubicaciones.filter(u=>(u.id||u.codigo)!==id);
-    toast(`${cod} eliminada`,'success');
-    renderUbicaciones(); renderRack();
-  } catch(e){ toast('Error: '+e.message,'error'); }
-}
-
-/* ══════════ RACK ══════════ */
-function renderRack(){
-  const rack=document.getElementById('sel-rack')?.value||'A';
-  const cont=document.getElementById('rack-cont'); if(!cont) return;
-  const cols=8, rows=6;
-  const ubics=S.ubicaciones.filter(u=>u.rack===rack);
-  cont.innerHTML=
-    `<div class="rack-grid" style="grid-template-columns:repeat(${cols},minmax(38px,1fr));gap:4px;">`+
-    Array.from({length:rows*cols},(_,i)=>{
-      const c=(i%cols)+1, r=Math.floor(i/cols)+1;
-      const cod=`${rack}-${String(c).padStart(2,'0')}-${String(r).padStart(2,'0')}`;
-      const u=ubics.find(x=>x.codigo===cod);
-      const cls=!u?'free':u.estado==='alerta'?'alrt':u.estado==='libre'?'free':'occ';
-      const lbl=u?.sku_actual?String(u.sku_actual).split(',')[0].substring(0,6):cod.split('-').slice(1).join('-');
-      return `<div class="rc ${cls}" onclick="selCelda('${cod}')" title="${cod}">${lbl}</div>`;
-    }).join('')+'</div>';
-}
-
-function selCelda(cod){
-  document.querySelectorAll('.rc').forEach(c=>c.classList.toggle('sel',c.title===cod));
-  const u=S.ubicaciones.find(x=>x.codigo===cod);
-  document.getElementById('cell-det').innerHTML=`
-    <div class="chdr">
-      <div class="ctitle"><i class="ti ti-info-circle"></i><code style="font-size:12px;">${cod}</code></div>
-      <span class="est ${!u||u.estado==='libre'?'est-pendiente':'est-proceso'}">${u?.estado||'sin crear'}</span>
+  const total=items.reduce((s,i)=>s+Number(i.cantidad||i.qty||0),0);
+  cont.innerHTML=`
+    <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+      <span class="est est-proceso">${items.length} SKUs</span>
+      <span class="est est-completada">${total.toLocaleString('es-MX')} unidades</span>
     </div>
-    <div style="font-size:12px;">
-      ${u?`
-        <div style="margin-bottom:5px;">Zona: <strong>${u.zona||'General'}</strong></div>
-        <div style="margin-bottom:12px;">Capacidad: <strong style="font-family:var(--mono);">${u.capacidad_kg||0} kg</strong></div>
-        <button class="btn btn-xs" onclick="navTo('conteo');setTimeout(()=>{const e=document.getElementById('cnt-ubic');if(e)e.value='${cod}';},200);">
-          <i class="ti ti-clipboard-list"></i>Contar esta ubicación
-        </button>`
-      :`<p style="color:var(--txt2);">Celda sin registrar. Usa el formulario de la derecha para crearla.</p>`}
+    <div style="border:1px solid var(--border);border-radius:var(--r);overflow:hidden;max-height:280px;overflow-y:auto;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:var(--bg3);">
+          <th style="padding:6px 8px;text-align:left;font-size:9px;">SKU</th>
+          <th style="padding:6px 8px;text-align:left;font-size:9px;">DESCRIPCIÓN</th>
+          <th style="padding:6px 8px;text-align:right;font-size:9px;">CANT.</th>
+        </tr></thead>
+        <tbody>${items.map(i=>`
+          <tr>
+            <td style="padding:5px 8px;border-top:1px solid var(--border);"><code style="font-size:10px;">${i.sku||'—'}</code></td>
+            <td style="padding:5px 8px;border-top:1px solid var(--border);font-size:11px;color:var(--txt2);">${i.descripcion||i.desc||'—'}</td>
+            <td style="padding:5px 8px;border-top:1px solid var(--border);text-align:right;font-family:var(--mono);font-weight:700;">${Number(i.cantidad||i.qty||0).toLocaleString('es-MX')}</td>
+          </tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div class="bgrp" style="margin-top:10px;">
+      <button class="btn btn-sm btn-p" onclick="irAContar('${codigo}')"><i class="ti ti-clipboard-list"></i>Contar aquí</button>
+      <button class="btn btn-sm" onclick="generarQREsteCodigo('${codigo}')"><i class="ti ti-qrcode"></i>QR</button>
     </div>`;
+}
+
+function buscarUbicacion(){
+  const q=(document.getElementById('lay-buscar')?.value||'').trim().toUpperCase();
+  if (!q){ toast('Escribe una ubicación (ej. A/25/N2)','warn'); return; }
+  /* Parsear A/25/N2 */
+  const m=q.match(/^([A-U])\/(\d+)\/N?(\d)$/i);
+  if (m){
+    const [,rack,pos,niv]=m;
+    layRackSel=rack.toUpperCase();
+    renderCedis();
+    consultarPosicion(rack.toUpperCase(),Number(pos),Number(niv));
+  } else {
+    mostrarContenidoUbicacion(q);
+  }
+}
+
+function irAContar(codigo){
+  navTo('conteo');
+  setTimeout(()=>{ const e=document.getElementById('cnt-ubic'); if(e) e.value=codigo; },250);
+}
+
+function generarQREsteCodigo(codigo){
+  navTo('qr');
+  setTimeout(()=>{
+    const tipo=document.getElementById('qr-tipo'); if(tipo) tipo.value='ubicacion';
+    const loc=document.getElementById('qr-loc'); if(loc) loc.value=codigo;
+    renderQR();
+  },250);
+}
+
+function poblarLayCli(){
+  const el=document.getElementById('lay-cli'); if(!el) return;
+  const cur=el.value;
+  el.innerHTML='<option value="">— Selecciona cliente —</option>'+
+    S.clientes.map(c=>`<option value="${c.id||c.id_odoo}">${c.nombre}</option>`).join('');
+  if (cur) el.value=cur;
 }
 
 /* ══════════ CONTEOS — Cruzado + Dirigido ══════════ */
@@ -2639,8 +3082,17 @@ function renderCIItems(){
     <div style="background:var(--bg3);border-radius:var(--r);padding:12px;border:1px solid var(--border);margin-bottom:10px;">
       <div style="font-size:8.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--txt2);margin-bottom:8px;">SKU ${i+1}</div>
       <div class="frow c3" style="margin-bottom:8px;">
-        <div><label class="fl">SKU</label><input class="fc" value="${it.sku}" oninput="S.ci.items[${i}].sku=this.value" placeholder="ACM-001"></div>
-        <div><label class="fl">Descripción</label><input class="fc" value="${it.desc}" oninput="S.ci.items[${i}].desc=this.value"></div>
+        <div><label class="fl">SKU</label>
+          <div class="ac-wrap">
+            <input class="fc" id="ci-sku-${i}" value="${it.sku}" autocomplete="off"
+                   placeholder="SKU o descripción…"
+                   oninput="S.ci.items[${i}].sku=this.value;acBuscar('ci-sku-${i}',this.value,${i})"
+                   onkeydown="acNav(event,'ci-sku-${i}',${i})"
+                   onfocus="acBuscar('ci-sku-${i}',this.value,${i})"
+                   onblur="setTimeout(()=>acCerrar('ci-sku-${i}'),150)">
+            <div class="ac-list" id="ac-ci-sku-${i}"></div>
+          </div></div>
+        <div><label class="fl">Descripción</label><input class="fc" id="ci-desc-${i}" value="${it.desc}" oninput="S.ci.items[${i}].desc=this.value"></div>
         <div><label class="fl">Cantidad</label><input class="fc" type="number" min="0" value="${it.qty||''}" oninput="S.ci.items[${i}].qty=Number(this.value)||0"></div>
       </div>
       <div class="fg"><label class="fl">Código de barras</label>
@@ -2775,17 +3227,7 @@ function genQRCI(){
     pal:totalPallets, sk:skusUnicos, un:totalUnid,
     f:new Date().toISOString().split('T')[0],
   });
-
-  const canvas=document.getElementById('qr-ci');
-  if (canvas){
-    QRCode.toCanvas(canvas,data,{width:200,margin:2,color:{dark:'#0D1526',light:'#FFFFFF'}},err=>{
-      if (err){
-        toast('Error generando QR: '+err.message,'error');
-        /* Reintento con texto mínimo */
-        QRCode.toCanvas(canvas,`CI|${S.ci.po}|${totalPallets}P|${totalUnid}U`,{width:200,margin:2},()=>{});
-      }
-    });
-  }
+  pintarQR('qr-ci',data,200);
 
   const lbl=document.getElementById('qr-ci-lbl');
   if (lbl) lbl.textContent=`${S.ci.po||'—'} · ${cli} · ${totalPallets} tarimas`;
@@ -3257,6 +3699,32 @@ function buildQRData(tipo,d={}){
   return JSON.stringify({...base,sku:d.sku||'',cliente:d.cliente||'',descripcion:d.descripcion||'',cantidad:Number(d.cantidad)||0,ubicacion:d.ubicacion||''});
 }
 
+/* Genera un QR dentro de un <div> usando qrcodejs (compatible con todo navegador).
+   Guarda la instancia para poder descargar/imprimir después. */
+const _qrInstances={};
+function pintarQR(divId,text,size){
+  const box=document.getElementById(divId);
+  if (!box) return;
+  box.innerHTML='';
+  if (typeof QRCode==='undefined'){
+    box.innerHTML='<span style="font-size:10px;color:#888;">Librería QR no cargó</span>';
+    return;
+  }
+  try {
+    /* qrcodejs expone QRCode como constructor (window.QRCode) */
+    _qrInstances[divId]=new QRCode(box,{
+      text:text||' ',
+      width:size||200,
+      height:size||200,
+      colorDark:'#0D1526',
+      colorLight:'#FFFFFF',
+      correctLevel:QRCode.CorrectLevel.M,
+    });
+  } catch(e){
+    box.innerHTML='<span style="font-size:10px;color:#c00;">Error QR: '+e.message+'</span>';
+  }
+}
+
 function renderQR(){
   const tipo=document.getElementById('qr-tipo')?.value||'sku';
   const sku=document.getElementById('qr-sku')?.value||'';
@@ -3266,23 +3734,35 @@ function renderQR(){
   const clSel=document.getElementById('qr-cli');
   const cli=clSel?.options[clSel?.selectedIndex]?.text||'';
   const data=buildQRData(tipo,{sku,cliente:cli,descripcion:desc,cantidad:qty,ubicacion:loc,codigo:loc});
-  const canvas=document.getElementById('qr-gen'); if(!canvas) return;
-  try {
-    QRCode.toCanvas(canvas,data||' ',{width:220,margin:2,color:{dark:'#0D1526',light:'#FFFFFF'}});
-    const lbl=document.getElementById('qr-gen-lbl');
-    if (lbl) lbl.textContent=`${tipo.toUpperCase()} | ${sku||loc||'Sin datos'} | ${cli||'—'}`;
-  } catch(e){}
+  pintarQR('qr-gen',data||' ',220);
+  const lbl=document.getElementById('qr-gen-lbl');
+  if (lbl) lbl.textContent=`${tipo.toUpperCase()} | ${sku||loc||'Sin datos'} | ${cli||'—'}`;
+}
+
+/* qrcodejs genera un <canvas> y un <img> dentro del div.
+   Extraemos la imagen para descargar/imprimir. */
+function getQRDataURL(divId){
+  const box=document.getElementById(divId);
+  if (!box) return null;
+  const cv=box.querySelector('canvas');
+  if (cv){ try { return cv.toDataURL('image/png'); } catch(e){} }
+  const img=box.querySelector('img');
+  if (img && img.src) return img.src;
+  return null;
 }
 
 function dlCanvas(id,name){
-  const c=document.getElementById(id); if(!c) return;
+  const url=getQRDataURL(id);
+  if (!url){ toast('Genera el QR primero','warn'); return; }
   const a=document.createElement('a');
-  a.href=c.toDataURL('image/png'); a.download=name; a.click();
+  a.href=url; a.download=name; a.click();
 }
+
 function prtCanvas(id){
-  const c=document.getElementById(id); if(!c) return;
+  const url=getQRDataURL(id);
+  if (!url){ toast('Genera el QR primero','warn'); return; }
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#fff;"><img src="${c.toDataURL()}" style="max-width:300px;"><script>window.onload=()=>window.print();<\/script></body></html>`);
+  w.document.write(`<!DOCTYPE html><html><body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#fff;"><img src="${url}" style="max-width:300px;"><script>window.onload=()=>window.print();<\/script></body></html>`);
   w.document.close();
 }
 
@@ -3387,7 +3867,347 @@ function toast(msg,tipo='info'){
   setTimeout(()=>el.remove(),4500);
 }
 
-/* ══════════ INIT ══════════ */
+/* ══════════ PRODUCTIVIDAD EJECUTIVA + BONIFICACIÓN ══════════
+   Dashboard para presentar a dirección: KPIs, gráficos y ranking
+   de puntos por operador (resultados × dificultad de tarea). */
+
+const PUNTOS_BASE = { checkin:10, dirigido:15, cruzado:20, tercero:25 };
+
+let _charts = {};
+function destruirChart(id){ if(_charts[id]){ try{_charts[id].destroy();}catch(e){} _charts[id]=null; } }
+
+function poblarProdSels(){
+  const op=document.getElementById('prod-op');
+  if (op){ const cur=op.value;
+    op.innerHTML='<option value="">Todos los operadores</option>'+
+      S.operadores.map(o=>`<option value="${o.nombre}">${o.nombre}</option>`).join('');
+    if(cur) op.value=cur; }
+  const cli=document.getElementById('prod-cli');
+  if (cli){ const cur=cli.value;
+    cli.innerHTML='<option value="">Todos los clientes</option>'+
+      S.clientes.map(c=>`<option value="${c.id||c.id_odoo}">${c.nombre}</option>`).join('');
+    if(cur) cli.value=cur; }
+}
+
+function enRango(iso,rango){
+  if (!iso) return false;
+  const f=new Date(iso); const hoy=new Date();
+  if (rango==='hoy') return f.toDateString()===hoy.toDateString();
+  if (rango==='semana'){ const d=new Date(hoy); d.setDate(d.getDate()-7); return f>=d; }
+  if (rango==='mes'){ const d=new Date(hoy); d.setDate(d.getDate()-30); return f>=d; }
+  return true;
+}
+
+function construirActividades(){
+  const rango=document.getElementById('prod-rango')?.value||'semana';
+  const opF=document.getElementById('prod-op')?.value||'';
+  const cliF=document.getElementById('prod-cli')?.value||'';
+  const actF=document.getElementById('prod-act')?.value||'';
+  const acts=[];
+  const porSesEq={};
+  S.conteos.forEach(c=>{
+    if (!enRango(c.fecha,rango)) return;
+    if (!enAlmacen(c)) return;
+    const k=c.sesionId+'|'+c.equipo;
+    if (!porSesEq[k]) porSesEq[k]={tipo:c.modo==='dirigido'?'dirigido':'cruzado',
+      usuario:c.usuario||'—', cliente:c.cliente||'', clienteId:c.clienteId||'',
+      almacen:c.almacen||'', piezas:0, fMin:c.fecha, fMax:c.fecha, sesionId:c.sesionId, ubics:new Set()};
+    const o=porSesEq[k];
+    (c.items||[]).forEach(it=>o.piezas+=Number(it.cantidad)||0);
+    o.ubics.add(c.ubicacion);
+    if (c.fecha<o.fMin) o.fMin=c.fecha;
+    if (c.fecha>o.fMax) o.fMax=c.fecha;
+  });
+  Object.values(porSesEq).forEach(o=>{
+    const ses=S.sesiones.find(s=>s.id===o.sesionId)||{};
+    const inicio=ses.fecha||o.fMin;
+    const fin=ses['fin_eq'+(o.tipo==='dirigido'?'D':'')]||o.fMax;
+    acts.push({tipo:o.tipo, usuario:o.usuario, cliente:o.cliente, clienteId:o.clienteId,
+      almacen:o.almacen, piezas:o.piezas, inicio, fin, ubicaciones:o.ubics.size, fecha:o.fMax});
+  });
+  S.checkins.forEach(c=>{
+    const f=c.creado||c.fecha;
+    if (!enRango(f,rango)) return;
+    if (!enAlmacen(c)) return;
+    const piezas=(c.pallets||[]).reduce((s,p)=>s+(p.items||[]).reduce((x,i)=>x+Number(i.qty||0),0),0);
+    const t=S.tareas.find(x=>x.id===c.tareaId);
+    acts.push({tipo:'checkin', usuario:c.usuario||'—', cliente:c.cliente||c.clienteId||'',
+      clienteId:c.clienteId||'', almacen:c.almacen||'', piezas,
+      inicio:t?.inicioEn||f, fin:f, ubicaciones:(c.pallets||[]).length, fecha:f});
+  });
+  return acts.filter(a=>
+    (!opF||a.usuario===opF) &&
+    (!cliF||String(a.clienteId)===cliF) &&
+    (!actF||a.tipo===actF));
+}
+
+function pphDe(a){
+  if (!a.inicio||!a.fin) return 0;
+  const h=(new Date(a.fin)-new Date(a.inicio))/3600000;
+  return h>0.01?a.piezas/h:0;
+}
+
+function puntosDe(a, mediaP){
+  let base=PUNTOS_BASE[a.tipo]||10;
+  const pph=pphDe(a);
+  let bonoEf=1;
+  if (mediaP>0 && pph>0) bonoEf=Math.min(1.5, 0.5 + (pph/mediaP)*0.5);
+  const bonoVol=Math.floor(a.piezas/100);
+  return Math.round(base*bonoEf) + bonoVol;
+}
+
+function nivelDe(pts){
+  if (pts>=3000) return ['Diamante','var(--blue)'];
+  if (pts>=1501) return ['Oro','var(--amber)'];
+  if (pts>=501)  return ['Plata','var(--txt2)'];
+  return ['Bronce','var(--orange-d)'];
+}
+
+function renderProductividadEjec(){
+  const acts=construirActividades();
+  const pphs=acts.map(pphDe).filter(x=>x>0);
+  const mediaP=pphs.length?pphs.reduce((a,b)=>a+b,0)/pphs.length:0;
+  const totalPiezas=acts.reduce((s,a)=>s+a.piezas,0);
+  const rango=document.getElementById('prod-rango')?.value||'semana';
+  const tareasComp=S.tareas.filter(t=>t.estatus==='completada'&&enAlmacen(t)&&enRango(t.completadaEn,rango)).length;
+  const totalPuntos=acts.reduce((s,a)=>s+puntosDe(a,mediaP),0);
+
+  const setM=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
+  setM('pe-actividades',acts.length);
+  setM('pe-piezas',totalPiezas.toLocaleString('es-MX'));
+  setM('pe-pph',Math.round(mediaP).toLocaleString('es-MX'));
+  setM('pe-tareas',tareasComp);
+  setM('pe-puntos',totalPuntos.toLocaleString('es-MX'));
+  setM('pe-precision',acts.length?'100%':'—');
+  const rlbl={hoy:'hoy',semana:'ultimos 7 dias',mes:'ultimos 30 dias',todo:'historico'}[rango];
+  setM('pe-actividades-sub',rlbl);
+
+  const porOp={};
+  acts.forEach(a=>{
+    if (!porOp[a.usuario]) porOp[a.usuario]={usuario:a.usuario, almacen:a.almacen,
+      acts:0, piezas:0, pphSum:0, pphN:0, puntos:0};
+    const o=porOp[a.usuario];
+    o.acts++; o.piezas+=a.piezas;
+    const p=pphDe(a); if(p>0){ o.pphSum+=p; o.pphN++; }
+    o.puntos+=puntosDe(a,mediaP);
+    if (a.almacen) o.almacen=a.almacen;
+  });
+  const ops=Object.values(porOp).sort((a,b)=>b.puntos-a.puntos);
+
+  pintarCharts(ops, acts);
+
+  const tb=document.getElementById('tb-ranking');
+  if (tb) tb.innerHTML=ops.length?ops.map((o,i)=>{
+    const pph=o.pphN?Math.round(o.pphSum/o.pphN):0;
+    const niv=nivelDe(o.puntos);
+    const medalla=i===0?'1':i===1?'2':i===2?'3':(i+1);
+    return '<tr>'+
+      '<td style="font-weight:700;font-size:14px;">'+medalla+'</td>'+
+      '<td><strong>'+o.usuario+'</strong></td>'+
+      '<td><span class="est '+(o.almacen==='BREA'?'est-proceso':'est-pendiente')+'">'+(o.almacen||'-')+'</span></td>'+
+      '<td style="font-family:var(--mono);">'+o.acts+'</td>'+
+      '<td style="font-family:var(--mono);">'+o.piezas.toLocaleString('es-MX')+'</td>'+
+      '<td style="font-family:var(--mono);">'+pph.toLocaleString('es-MX')+'</td>'+
+      '<td style="font-family:var(--mono);">-</td>'+
+      '<td><strong style="font-family:var(--mono);color:'+niv[1]+';font-size:14px;">'+o.puntos.toLocaleString('es-MX')+'</strong></td>'+
+      '<td><span class="est" style="background:transparent;border:1px solid var(--border2);">'+niv[0]+'</span></td>'+
+    '</tr>';
+  }).join(''):'<tr><td colspan="9"><div class="empty"><i class="ti ti-trophy"></i><p>Sin actividad en el periodo seleccionado</p></div></td></tr>';
+}
+
+function pintarCharts(ops, acts){
+  const css=getComputedStyle(document.documentElement);
+  const c1=css.getPropertyValue('--blue').trim();
+  const c2=css.getPropertyValue('--orange').trim();
+  const c3=css.getPropertyValue('--teal').trim();
+  const c4=css.getPropertyValue('--purple').trim();
+  const txt=css.getPropertyValue('--txt2').trim();
+  const grid=css.getPropertyValue('--border').trim();
+  if (typeof Chart==='undefined') return;
+  Chart.defaults.color=txt;
+  Chart.defaults.font.family="'Plus Jakarta Sans',sans-serif";
+
+  destruirChart('chart-piezas');
+  const cv1=document.getElementById('chart-piezas');
+  if (cv1){
+    _charts['chart-piezas']=new Chart(cv1,{type:'bar',
+      data:{labels:ops.map(o=>o.usuario),
+        datasets:[{label:'Piezas',data:ops.map(o=>o.piezas),backgroundColor:c1,borderRadius:6}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{y:{grid:{color:grid}},x:{grid:{display:false}}}}});
+  }
+
+  destruirChart('chart-actividades');
+  const cv2=document.getElementById('chart-actividades');
+  if (cv2){
+    const tipos={cruzado:0,dirigido:0,checkin:0};
+    acts.forEach(a=>tipos[a.tipo]=(tipos[a.tipo]||0)+1);
+    _charts['chart-actividades']=new Chart(cv2,{type:'doughnut',
+      data:{labels:['Conteo Cruzado','Conteo Dirigido','Check-In'],
+        datasets:[{data:[tipos.cruzado,tipos.dirigido,tipos.checkin],
+          backgroundColor:[c1,c4,c3],borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}});
+  }
+
+  destruirChart('chart-tendencia');
+  const cv3=document.getElementById('chart-tendencia');
+  if (cv3){
+    const porDia={};
+    acts.forEach(a=>{ const d=(a.fecha||'').split('T')[0]; if(d) porDia[d]=(porDia[d]||0)+a.piezas; });
+    const dias=Object.keys(porDia).sort();
+    _charts['chart-tendencia']=new Chart(cv3,{type:'line',
+      data:{labels:dias.map(d=>d.split('-').slice(1).join('/')),
+        datasets:[{label:'Piezas',data:dias.map(d=>porDia[d]),borderColor:c2,
+          backgroundColor:'rgba(244,121,32,.1)',fill:true,tension:.3,pointRadius:3}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{y:{grid:{color:grid}},x:{grid:{display:false}}}}});
+  }
+
+  destruirChart('chart-eficiencia');
+  const cv4=document.getElementById('chart-eficiencia');
+  if (cv4){
+    const ef=ops.map(o=>o.pphN?Math.round(o.pphSum/o.pphN):0);
+    _charts['chart-eficiencia']=new Chart(cv4,{type:'bar',
+      data:{labels:ops.map(o=>o.usuario),
+        datasets:[{label:'Piezas/hora',data:ef,backgroundColor:c3,borderRadius:6}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{x:{grid:{color:grid}},y:{grid:{display:false}}}}});
+  }
+}
+
+function expProductividadEjec(){
+  const acts=construirActividades();
+  const pphs=acts.map(pphDe).filter(x=>x>0);
+  const mediaP=pphs.length?pphs.reduce((a,b)=>a+b,0)/pphs.length:0;
+  const porOp={};
+  acts.forEach(a=>{
+    if (!porOp[a.usuario]) porOp[a.usuario]={usuario:a.usuario,almacen:a.almacen,acts:0,piezas:0,pphSum:0,pphN:0,puntos:0};
+    const o=porOp[a.usuario]; o.acts++; o.piezas+=a.piezas;
+    const p=pphDe(a); if(p>0){o.pphSum+=p;o.pphN++;} o.puntos+=puntosDe(a,mediaP);
+  });
+  const rows=[['Operador','Almacen','Actividades','Piezas','Piezas/hora','Puntos','Nivel']];
+  Object.values(porOp).sort((a,b)=>b.puntos-a.puntos).forEach(o=>{
+    rows.push([o.usuario,o.almacen||'',o.acts,o.piezas,o.pphN?Math.round(o.pphSum/o.pphN):0,o.puntos,nivelDe(o.puntos)[0]]);
+  });
+  expXLSX(rows,'Productividad_iFull.xlsx');
+}
+
+/* ══════════ AUTOCOMPLETADO DE SKUs ══════════
+   Lee de la colección `skus` (datos manuales hoy, Odoo mañana).
+   Filtra por el cliente seleccionado y sugiere por SKU, descripción
+   o código de barras. El día que Odoo llene `skus`, funciona igual
+   sin tocar este código — ese es el "gancho" para la integración. */
+const acState={ items:[], idx:-1, target:null };
+
+/* Cliente seleccionado según el módulo activo */
+function acClienteActual(target){
+  if (target==='c-sku') return document.getElementById('cnt-cli')?.value||'';
+  if (target.startsWith('ci-sku-')) return document.getElementById('ci-cli')?.value||'';
+  return '';
+}
+
+function acBuscar(target,q,ciIdx){
+  const cont=document.getElementById('ac-'+target);
+  if (!cont) return;
+  const query=(q||'').trim().toLowerCase();
+
+  if (!S.skus.length){
+    cont.innerHTML='<div class="ac-empty">Sin catálogo de SKUs aún. Sincroniza Odoo o captura manual.</div>';
+    cont.classList.add('open');
+    acState.items=[]; acState.idx=-1; acState.target=target;
+    return;
+  }
+
+  const cli=acClienteActual(target);
+  let pool=S.skus;
+  if (cli) pool=pool.filter(s=>String(s.cliente_id||s.id_odoo||'')===String(cli));
+
+  let res;
+  if (!query){
+    res=pool.slice(0,12); /* sugerencias iniciales del cliente */
+  } else {
+    res=pool.filter(s=>
+      (s.sku||'').toLowerCase().includes(query) ||
+      (s.descripcion||'').toLowerCase().includes(query) ||
+      (s.barcode||'').toLowerCase().includes(query)
+    ).slice(0,15);
+  }
+
+  acState.items=res; acState.idx=-1; acState.target=target; acState.ciIdx=ciIdx;
+
+  if (!res.length){
+    cont.innerHTML=`<div class="ac-empty">Sin coincidencias${cli?' para este cliente':''}. Puedes capturar el SKU manualmente.</div>`;
+    cont.classList.add('open');
+    return;
+  }
+
+  cont.innerHTML=res.map((s,i)=>`
+    <div class="ac-item" data-i="${i}" onmousedown="acElegir('${target}',${i}${ciIdx!=null?','+ciIdx:''})">
+      <span class="ac-sku">${s.sku||'SIN-SKU'}</span>
+      <span class="ac-desc">${s.descripcion||'—'}</span>
+      <span class="ac-meta">${s.barcode?'📷 '+s.barcode+' · ':''}A mano: ${Number(s.cantidad_mano||0).toLocaleString('es-MX')} ${s.unidad||'PZA'}${s.ubicacion?' · '+s.ubicacion:''}</span>
+    </div>`).join('');
+  cont.classList.add('open');
+}
+
+function acNav(e,target,ciIdx){
+  const cont=document.getElementById('ac-'+target);
+  const abierto=cont?.classList.contains('open');
+  if (e.key==='ArrowDown' && abierto){
+    e.preventDefault();
+    acState.idx=Math.min(acState.idx+1,acState.items.length-1);
+    acMarcar(target);
+  } else if (e.key==='ArrowUp' && abierto){
+    e.preventDefault();
+    acState.idx=Math.max(acState.idx-1,0);
+    acMarcar(target);
+  } else if (e.key==='Enter'){
+    if (abierto && acState.idx>=0){
+      e.preventDefault();
+      acElegir(target,acState.idx,ciIdx);
+    } else if (target==='c-sku'){
+      addItem();
+    }
+  } else if (e.key==='Escape'){
+    acCerrar(target);
+  }
+}
+
+function acMarcar(target){
+  const cont=document.getElementById('ac-'+target); if(!cont) return;
+  cont.querySelectorAll('.ac-item').forEach(el=>{
+    el.classList.toggle('sel',Number(el.dataset.i)===acState.idx);
+    if (Number(el.dataset.i)===acState.idx) el.scrollIntoView({block:'nearest'});
+  });
+}
+
+function acElegir(target,i,ciIdx){
+  const s=acState.items[i]; if(!s) return;
+  if (target==='c-sku'){
+    const el=document.getElementById('c-sku');
+    if (el) el.value=s.sku||'';
+    document.getElementById('c-qty')?.focus();
+  } else if (target.startsWith('ci-sku-') && ciIdx!=null){
+    const inp=document.getElementById('ci-sku-'+ciIdx);
+    const desc=document.getElementById('ci-desc-'+ciIdx);
+    if (inp) inp.value=s.sku||'';
+    if (desc) desc.value=s.descripcion||'';
+    if (S.ci.items[ciIdx]){
+      S.ci.items[ciIdx].sku=s.sku||'';
+      S.ci.items[ciIdx].desc=s.descripcion||'';
+      if (s.barcode) S.ci.items[ciIdx].barcode=s.barcode;
+    }
+  }
+  acCerrar(target);
+}
+
+function acCerrar(target){
+  const cont=document.getElementById('ac-'+target);
+  if (cont) cont.classList.remove('open');
+  acState.idx=-1;
+}
+
+
 (function init(){
   const hoy=new Date().toISOString().split('T')[0];
   const ciF=document.getElementById('ci-fecha'); if(ciF) ciF.value=hoy;
