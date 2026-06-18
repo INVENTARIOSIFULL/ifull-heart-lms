@@ -1901,6 +1901,22 @@ body.role-operador .adm{display:none!important;}
         </div>
 
         <div class="cfgblk">
+          <div class="cfghdr"><i class="ti ti-brand-google-drive" style="font-size:16px;color:var(--green);"></i>Puente de Drive (fotos)</div>
+          <div class="cfgbody">
+            <div class="alert al-info">
+              <i class="ti ti-info-circle"></i>
+              <div>Las fotos de Devoluciones e Inbound se guardan en tu <strong>Google Drive</strong> (no en Firebase, para no saturar el plan gratuito). Despliega el Apps Script del puente y pega aquí su URL. Sin esto, las fotos se guardan localmente en el registro.</div>
+            </div>
+            <div class="fg"><label class="fl">URL del puente de Drive</label>
+              <input class="fc" id="cfg-drive" placeholder="https://script.google.com/macros/s/…/exec"></div>
+            <div class="bgrp">
+              <button class="btn btn-p" onclick="guardarDrive()"><i class="ti ti-device-floppy"></i>Guardar</button>
+              <button class="btn btn-sm" onclick="probarDrive()"><i class="ti ti-plug-connected"></i>Probar conexión</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="cfgblk">
           <div class="cfghdr"><i class="ti ti-user-plus" style="font-size:16px;color:var(--orange);"></i>Crear cuenta de administrador</div>
           <div class="cfgbody">
             <div class="frow c2">
@@ -2098,6 +2114,7 @@ const S = {
   /* Infra */
   listeners:[], scanStream:null, scanning:false,
   odooProxy: localStorage.getItem('ifl_proxy') || '',
+  driveProxy: localStorage.getItem('ifl_drive') || '',
   odooKey:   localStorage.getItem('ifl_apikey') || '',
 
   vistaKanban:true, filtroOpMis:'all',
@@ -3825,16 +3842,14 @@ async function inbAddItem(){
     _guardado: false,
   };
 
-  /* Subir foto si hay */
+  /* Subir foto al puente de Drive si está configurado; si no, guardar base64 local */
   if (INB.fotoDataUrl){
-    try {
-      const f = await dataURLtoFile(INB.fotoDataUrl, `inbound_${item.id}.jpg`);
-      const { url, path } = await subirFotoStorage(f, `inbound/${INB.tarimaId}`);
-      item.fotoUrl = url;
-      item.fotoPath = path;
-      toast('Foto subida ✓','success');
-    } catch(e){
-      toast('Foto sin subir (sin Storage): '+e.message,'warn');
+    if (S.driveProxy){
+      const url = await subirFotoDrive(INB.fotoDataUrl, 'Inbound', `${INB.lp||INB.tarimaId}_${item.id}`);
+      if (url){ item.fotoUrl = url; toast('Foto subida a Drive ✓','success'); }
+      else { item.fotoUrl = INB.fotoDataUrl; toast('Foto guardada localmente','info'); }
+    } else {
+      item.fotoUrl = INB.fotoDataUrl; /* sin puente: base64 en el registro */
     }
   }
 
@@ -4574,6 +4589,21 @@ async function devCerrar(){
   const subEl=document.getElementById('dev-sub');
   const estadoFinal=DEV.clasif==='tecnica'?'clasificado':'cerrado';
 
+  /* Subir fotos a Drive si el puente está configurado; si no, guardar base64 */
+  let fotoGuia=DEV.fotoGuia||'', fotoProd=DEV.fotoProd||'';
+  if (S.driveProxy){
+    if (btn) btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Subiendo fotos…';
+    if (DEV.fotoGuia){
+      const u=await subirFotoDrive(DEV.fotoGuia,'Devoluciones',`${DEV.id}_guia`);
+      if (u) fotoGuia=u;
+    }
+    if (DEV.fotoProd){
+      const u=await subirFotoDrive(DEV.fotoProd,'Devoluciones',`${DEV.id}_producto`);
+      if (u) fotoProd=u;
+    }
+    if (btn) btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Guardando…';
+  }
+
   try {
     await fsSet(`devoluciones/${DEV.id}`,{
       tipo:document.getElementById('dev-tipo')?.value||'devolucion',
@@ -4583,7 +4613,7 @@ async function devCerrar(){
       origen:document.getElementById('dev-origen')?.value||'',
       notificacionPrevia:document.getElementById('dev-notif')?.value||'',
       items:[...DEV.items],
-      fotoGuia:DEV.fotoGuia||'', fotoProd:DEV.fotoProd||'',
+      fotoGuia, fotoProd,
       dano:document.getElementById('dev-dano')?.value||'',
       clasificacion:DEV.clasif, subclasificacion:subEl?.value||'',
       observaciones:document.getElementById('dev-obs-final')?.value||'',
@@ -6320,6 +6350,81 @@ async function guardarOdoo(){
   } catch(e){ toast('Guardado local (Firestore no disponible)','warn'); }
 }
 
+/* ══════════ PUENTE DE DRIVE ══════════ */
+
+/* Las fotos ahora van a Drive (no a Firebase Storage). Este stub
+   evita errores en el código heredado de Inbound que intentaba
+   borrar de Storage; con Drive no borramos automáticamente. */
+function borrarFotoStorage(path){ /* no-op: las fotos viven en Drive */ }
+
+async function guardarDrive(){
+  const url=document.getElementById('cfg-drive')?.value?.trim();
+  if (!url){ toast('Ingresa la URL del puente de Drive','warn'); return; }
+  S.driveProxy=url;
+  localStorage.setItem('ifl_drive',url);
+  try {
+    await fsSet('config/drive',{url,updatedBy:S.nombre,updatedAt:new Date().toISOString()});
+    toast('Puente de Drive guardado','success');
+  } catch(e){ toast('Guardado local (Firestore no disponible)','warn'); }
+}
+
+async function probarDrive(){
+  if (!S.driveProxy){ toast('Guarda la URL del puente primero','warn'); return; }
+  toast('Probando conexión…','info');
+  try {
+    const res=await fetch(S.driveProxy,{
+      method:'POST', headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'ping'}),
+    });
+    const data=await res.json();
+    if (data.ok) toast('✅ Puente de Drive activo','success');
+    else toast('Respuesta inesperada: '+JSON.stringify(data),'warn');
+  } catch(e){ toast('❌ No se pudo conectar: '+e.message,'error'); }
+}
+
+/* Comprime una imagen base64 a un tamaño razonable antes de subir.
+   Reduce el peso ~80% sin perder legibilidad de evidencia. */
+function comprimirFoto(dataUrl, maxLado=1280, calidad=0.7){
+  return new Promise((resolve)=>{
+    const img=new Image();
+    img.onload=()=>{
+      let {width,height}=img;
+      if (width>maxLado||height>maxLado){
+        if (width>height){ height=Math.round(height*maxLado/width); width=maxLado; }
+        else { width=Math.round(width*maxLado/height); height=maxLado; }
+      }
+      const canvas=document.createElement('canvas');
+      canvas.width=width; canvas.height=height;
+      canvas.getContext('2d').drawImage(img,0,0,width,height);
+      resolve(canvas.toDataURL('image/jpeg',calidad));
+    };
+    img.onerror=()=>resolve(dataUrl); /* si falla, sube el original */
+    img.src=dataUrl;
+  });
+}
+
+/* Sube una foto al puente de Drive. Devuelve la URL o null si no hay puente.
+   modulo: 'Devoluciones' | 'Inbound' · nombre: identificador del archivo */
+async function subirFotoDrive(dataUrl, modulo, nombre){
+  if (!dataUrl) return null;
+  if (!S.driveProxy) return null; /* sin puente: el llamador guarda local */
+  try {
+    const comprimida=await comprimirFoto(dataUrl);
+    const res=await fetch(S.driveProxy,{
+      method:'POST', headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({
+        action:'subirFoto', modulo,
+        fecha:new Date().toISOString().split('T')[0],
+        nombre, dataUrl:comprimida,
+      }),
+    });
+    const data=await res.json();
+    if (data.ok && data.url) return data.url;
+    return null;
+  } catch(e){ return null; }
+}
+
+
 async function crearAdmin(){
   if (!window._FB){ toast('Firebase no disponible','error'); return; }
   const email=document.getElementById('nu-email')?.value?.trim();
@@ -6814,6 +6919,9 @@ function acCerrar(target){
   }
   if (S.odooKey){
     const el=document.getElementById('cfg-apikey'); if(el) el.value=S.odooKey;
+  }
+  if (S.driveProxy){
+    const el=document.getElementById('cfg-drive'); if(el) el.value=S.driveProxy;
   }
 
   /* Restaurar filtro de almacén del admin */
