@@ -494,6 +494,10 @@ body.role-operador .adm{display:none!important;}
         <i class="ti ti-search"></i><span class="nlbl">Rastreos</span>
         <span class="nbadge" id="badge-rastreos" style="display:none;">0</span>
       </button>
+      <button class="nav-item" data-page="devoluciones">
+        <i class="ti ti-arrow-back-up"></i><span class="nlbl">Devoluciones</span>
+        <span class="nbadge" id="badge-devoluciones" style="display:none;">0</span>
+      </button>
       <button class="nav-item" data-page="qr">
         <i class="ti ti-qrcode"></i><span class="nlbl">Generador QR</span>
       </button>
@@ -605,6 +609,8 @@ body.role-operador .adm{display:none!important;}
                 <option value="checkin">Check-In</option>
                 <option value="inbound">Inbound</option>
                 <option value="putaway">Putaway</option>
+                <option value="rastreo">Rastreos</option>
+                <option value="devolucion">Devoluciones</option>
               </select>
             </div>
             <button class="btn btn-sm btn-p" onclick="expProductividadEjec()"><i class="ti ti-file-spreadsheet"></i>Exportar</button>
@@ -1519,6 +1525,195 @@ body.role-operador .adm{display:none!important;}
         </div>
       </div>
 
+      <!-- ═══ DEVOLUCIONES (logística inversa) ═══ -->
+      <div class="page" id="page-devoluciones">
+        <div id="dev-tarea-info" style="display:none;" class="alert al-orange">
+          <i class="ti ti-arrow-back-up"></i><div id="dev-tarea-txt"></div>
+        </div>
+
+        <!-- ── HOME: KPIs + lista ── -->
+        <div id="dev-home">
+          <div class="mgrid">
+            <div class="mcard"><div class="macc" style="background:var(--orange);"></div>
+              <div class="mlbl">En proceso</div><div class="mval" id="dev-kpi-proceso">–</div><div class="msub">sin clasificar</div></div>
+            <div class="mcard"><div class="macc" style="background:var(--green);"></div>
+              <div class="mlbl">A Stock hoy</div><div class="mval" id="dev-kpi-stock">–</div><div class="msub">liberadas a venta</div></div>
+            <div class="mcard"><div class="macc" style="background:var(--red);"></div>
+              <div class="mlbl">Scrap / Outlet hoy</div><div class="mval" id="dev-kpi-scrap">–</div><div class="msub">dañadas/incompletas</div></div>
+            <div class="mcard"><div class="macc" style="background:var(--amber);"></div>
+              <div class="mlbl">Validación técnica</div><div class="mval" id="dev-kpi-tecnica">–</div><div class="msub">requieren prueba</div></div>
+          </div>
+
+          <div class="card">
+            <div class="chdr">
+              <div class="ctitle"><i class="ti ti-arrow-back-up"></i>Devoluciones y retiros</div>
+              <button class="btn btn-p btn-sm" onclick="devNueva()"><i class="ti ti-plus"></i>Nueva devolución</button>
+            </div>
+            <div class="bgrp" style="margin-bottom:12px;">
+              <select class="fc" id="dev-filtro" style="width:170px;" onchange="renderDevHome()">
+                <option value="proceso">En proceso</option>
+                <option value="clasificado">Clasificadas</option>
+                <option value="cerrado">Cerradas</option>
+                <option value="">Todas</option>
+              </select>
+            </div>
+            <div id="dev-lista"><div class="empty"><i class="ti ti-package"></i><p>Sin devoluciones registradas.</p></div></div>
+          </div>
+        </div>
+
+        <!-- ── WIZARD de Devolución ── -->
+        <div id="dev-wizard" style="display:none;">
+          <div class="steps" id="dev-steps">
+            <div class="step active" data-dstep="0"><div class="stepn">1</div><span>Ingreso</span></div>
+            <div class="step" data-dstep="1"><div class="stepn">2</div><span>Recepción</span></div>
+            <div class="step" data-dstep="2"><div class="stepn">3</div><span>Evidencia</span></div>
+            <div class="step" data-dstep="3"><div class="stepn">4</div><span>Clasificación</span></div>
+          </div>
+
+          <!-- Paso 0: Tipo de ingreso + notificación previa -->
+          <div id="dev-s0">
+            <div class="card">
+              <div class="chdr">
+                <div class="ctitle"><i class="ti ti-clipboard-list"></i>Paso 1 — Tipo de ingreso</div>
+                <button class="btn btn-sm" onclick="devCancelar()"><i class="ti ti-x"></i>Cancelar</button>
+              </div>
+              <div class="frow c2">
+                <div class="fg"><label class="fl">Tipo de ingreso <span style="color:var(--red);">*</span></label>
+                  <select class="fc" id="dev-tipo" onchange="devToggleMotivo()">
+                    <option value="devolucion">Devolución</option>
+                    <option value="retiro">Retiro (seller / antigüedad)</option>
+                  </select></div>
+                <div class="fg"><label class="fl">Cliente <span style="color:var(--red);">*</span></label>
+                  <select class="fc" id="dev-cli"><option value="">— Selecciona cliente —</option></select></div>
+              </div>
+              <div class="fg" id="dev-motivo-wrap"><label class="fl">Motivo de devolución</label>
+                <select class="fc" id="dev-motivo">
+                  <option value="no_esperado">Producto no esperado / error</option>
+                  <option value="no_cumple">No cumple especificaciones</option>
+                  <option value="entrega_fallida">Entrega fallida (no recibido)</option>
+                </select></div>
+              <div class="frow c2">
+                <div class="fg"><label class="fl">Número de guía / tracking</label>
+                  <div style="display:flex;gap:8px;">
+                    <input class="fc" id="dev-guia" placeholder="Guía o tracking" style="flex:1;">
+                    <button class="btn btn-sm" onclick="abrirScanner('dev-guia')"><i class="ti ti-scan"></i></button>
+                  </div></div>
+                <div class="fg"><label class="fl">Marketplace / origen</label>
+                  <input class="fc" id="dev-origen" placeholder="Amazon, MercadoLibre, Shopify…"></div>
+              </div>
+              <div class="fg"><label class="fl">Notificación previa (qué se espera)</label>
+                <textarea class="fc" id="dev-notif" placeholder="SKU(s) y cantidad esperada según notificación previa…" style="min-height:50px;"></textarea></div>
+              <div class="div"></div>
+              <div class="bgrp">
+                <button class="btn btn-p" onclick="devIrPaso(1)"><i class="ti ti-arrow-right"></i>Siguiente: Recepción</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paso 1: Recepción y validación (qué llegó vs qué se esperaba) -->
+          <div id="dev-s1" style="display:none;">
+            <div class="card">
+              <div class="chdr">
+                <div class="ctitle"><i class="ti ti-package-import"></i>Paso 2 — Recepción y validación</div>
+                <span class="est est-proceso" id="dev-items-badge">0 ítems</span>
+              </div>
+              <div class="alert al-info" style="margin-bottom:14px;">
+                <i class="ti ti-info-circle"></i>
+                <div>Confirma <strong>qué llegó</strong> y <strong>cuánto llegó</strong> contra lo esperado. Agrega cada SKU recibido.</div>
+              </div>
+              <div id="dev-items-list" style="margin-bottom:10px;"></div>
+              <div class="frow c3">
+                <div class="ac-wrap">
+                  <input class="fc" id="dev-sku" placeholder="SKU o descripción…" autocomplete="off"
+                         oninput="acBuscar('dev-sku',this.value)" onkeydown="acNav(event,'dev-sku')"
+                         onfocus="acBuscar('dev-sku',this.value)" onblur="setTimeout(()=>acCerrar('dev-sku'),150)">
+                  <div class="ac-list" id="ac-dev-sku"></div>
+                </div>
+                <input class="fc" id="dev-qty" type="number" min="0" placeholder="Cant. recibida">
+                <button class="btn btn-p" onclick="devAddItem()"><i class="ti ti-plus"></i>Agregar</button>
+              </div>
+              <div class="div"></div>
+              <div class="bgrp">
+                <button class="btn btn-sm" onclick="devIrPaso(0)"><i class="ti ti-arrow-left"></i>Volver</button>
+                <button class="btn btn-p" onclick="devIrPaso(2)"><i class="ti ti-arrow-right"></i>Siguiente: Evidencia</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paso 2: Evidencia fotográfica -->
+          <div id="dev-s2" style="display:none;">
+            <div class="card">
+              <div class="chdr">
+                <div class="ctitle"><i class="ti ti-camera"></i>Paso 3 — Evidencia fotográfica</div>
+              </div>
+              <div class="alert al-info" style="margin-bottom:14px;">
+                <i class="ti ti-info-circle"></i>
+                <div>Fotografía guía/empaque, producto (exterior e interior) y daños si aplica. La evidencia es el único medio válido para validaciones.</div>
+              </div>
+              <div id="dev-fotos-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px;">
+                <div class="fotozone" onclick="document.getElementById('dev-file-guia').click()">
+                  <img id="dev-prev-guia" class="fotoprev" style="display:none;max-height:110px;width:100%;object-fit:cover;border-radius:var(--r);">
+                  <div id="dev-icn-guia"><i class="ti ti-camera" style="font-size:24px;color:var(--txt2);"></i><div style="font-size:11px;color:var(--txt2);margin-top:4px;">Guía / empaque</div></div>
+                </div>
+                <div class="fotozone" onclick="document.getElementById('dev-file-prod').click()">
+                  <img id="dev-prev-prod" class="fotoprev" style="display:none;max-height:110px;width:100%;object-fit:cover;border-radius:var(--r);">
+                  <div id="dev-icn-prod"><i class="ti ti-camera" style="font-size:24px;color:var(--txt2);"></i><div style="font-size:11px;color:var(--txt2);margin-top:4px;">Producto</div></div>
+                </div>
+              </div>
+              <input type="file" id="dev-file-guia" accept="image/*" capture="environment" style="display:none;" onchange="devProcFoto('guia',this)">
+              <input type="file" id="dev-file-prod" accept="image/*" capture="environment" style="display:none;" onchange="devProcFoto('prod',this)">
+              <div class="fg"><label class="fl">¿Hay daño? Descríbelo</label>
+                <textarea class="fc" id="dev-dano" placeholder="Ej: empaque severamente dañado, producto incompleto, piezas faltantes…" style="min-height:54px;"></textarea></div>
+              <div class="div"></div>
+              <div class="bgrp">
+                <button class="btn btn-sm" onclick="devIrPaso(1)"><i class="ti ti-arrow-left"></i>Volver</button>
+                <button class="btn btn-p" onclick="devIrPaso(3)"><i class="ti ti-arrow-right"></i>Siguiente: Clasificar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paso 3: Clasificación operativa -->
+          <div id="dev-s3" style="display:none;">
+            <div class="card">
+              <div class="chdr">
+                <div class="ctitle"><i class="ti ti-arrows-split"></i>Paso 4 — Clasificación operativa</div>
+              </div>
+              <div class="alert al-info" style="margin-bottom:14px;">
+                <i class="ti ti-info-circle"></i>
+                <div>Clasifica según el estado del producto y empaque. Autonomía operativa: clasifica directamente sin esperar autorización para decisiones estándar.</div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
+                <div class="dev-clasif" data-clasif="stock" onclick="devSelClasif('stock')" style="border:2px solid var(--border2);border-radius:var(--r);padding:14px;cursor:pointer;text-align:center;">
+                  <div style="font-size:26px;">🟢</div>
+                  <div style="font-weight:700;font-size:13px;margin:4px 0;">Stock</div>
+                  <div style="font-size:10px;color:var(--txt2);">Producto y empaque en buen estado, funcional</div>
+                </div>
+                <div class="dev-clasif" data-clasif="scrap" onclick="devSelClasif('scrap')" style="border:2px solid var(--border2);border-radius:var(--r);padding:14px;cursor:pointer;text-align:center;">
+                  <div style="font-size:26px;">🔴</div>
+                  <div style="font-weight:700;font-size:13px;margin:4px 0;">Scrap / Outlet</div>
+                  <div style="font-size:10px;color:var(--txt2);">Dañado o incompleto, piezas faltantes</div>
+                </div>
+                <div class="dev-clasif" data-clasif="tecnica" onclick="devSelClasif('tecnica')" style="border:2px solid var(--border2);border-radius:var(--r);padding:14px;cursor:pointer;text-align:center;">
+                  <div style="font-size:26px;">🟡</div>
+                  <div style="font-weight:700;font-size:13px;margin:4px 0;">Validación técnica</div>
+                  <div style="font-size:10px;color:var(--txt2);">Requiere prueba funcional especializada</div>
+                </div>
+              </div>
+              <div id="dev-subclasif" style="display:none;margin-bottom:14px;"></div>
+              <div class="fg"><label class="fl">Observaciones finales</label>
+                <textarea class="fc" id="dev-obs-final" placeholder="Notas de cierre…" style="min-height:50px;"></textarea></div>
+              <div class="div"></div>
+              <div class="bgrp">
+                <button class="btn btn-sm" onclick="devIrPaso(2)"><i class="ti ti-arrow-left"></i>Volver</button>
+                <button class="btn btn-ok" id="btn-dev-cerrar" onclick="devCerrar()" style="flex:1;justify-content:center;padding:11px;">
+                  <i class="ti ti-circle-check"></i>Registrar y cerrar devolución
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ QR ═══ -->
       <div class="page" id="page-qr">
         <div class="twocol">
@@ -1624,6 +1819,60 @@ body.role-operador .adm{display:none!important;}
             </table>
           </div>
         </div>
+
+        <!-- Inbound -->
+        <div class="card">
+          <div class="chdr">
+            <div class="ctitle"><i class="ti ti-package-import"></i>Inbound · Tarimas recibidas</div>
+            <button class="btn btn-sm" onclick="expAdmInbound()"><i class="ti ti-file-spreadsheet"></i>Excel del día</button>
+          </div>
+          <div class="twrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>LP</th><th>Cliente</th><th>Operador</th><th>Ítems</th><th>Piezas</th><th>Estatus</th></tr></thead>
+              <tbody id="tb-mon-inbound"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Putaway -->
+        <div class="card">
+          <div class="chdr">
+            <div class="ctitle"><i class="ti ti-forklift"></i>Putaway · Almacenajes</div>
+          </div>
+          <div class="twrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>LP</th><th>Cliente</th><th>Operador</th><th>Ubicación</th><th>Estatus</th></tr></thead>
+              <tbody id="tb-mon-putaway"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Rastreos -->
+        <div class="card">
+          <div class="chdr">
+            <div class="ctitle"><i class="ti ti-search"></i>Rastreos de SKU</div>
+          </div>
+          <div class="twrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>SKU</th><th>Cliente</th><th>Prioridad</th><th>Levantó</th><th>Estado</th><th>Resolución</th></tr></thead>
+              <tbody id="tb-mon-rastreos"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Devoluciones -->
+        <div class="card">
+          <div class="chdr">
+            <div class="ctitle"><i class="ti ti-arrow-back-up"></i>Devoluciones y retiros</div>
+            <button class="btn btn-sm" onclick="expAdmDevoluciones()"><i class="ti ti-file-spreadsheet"></i>Excel del día</button>
+          </div>
+          <div class="twrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Operador</th><th>SKUs</th><th>Clasificación</th><th>Estado</th></tr></thead>
+              <tbody id="tb-mon-devoluciones"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- ═══ CONFIG (admin) ═══ -->
@@ -1684,6 +1933,7 @@ body.role-operador .adm{display:none!important;}
           <option value="dirigido">Conteo Dirigido</option>
           <option value="inbound">Inbound (recepción)</option>
           <option value="putaway">Putaway (almacenaje)</option>
+          <option value="devolucion">Devolución / Retiro</option>
           <option value="otro">Otro</option>
         </select></div>
       <div class="fg"><label class="fl">Urgencia</label>
@@ -1833,7 +2083,7 @@ const S = {
 
   /* Datos en vivo (alimentados por listeners de Firestore) */
   clientes:[], skus:[], ubicaciones:[], operadores:[], tareas:[], conteos:[], checkins:[], sesiones:[],
-  rastreos:[], tarimas:[], itemsTarima:[],
+  rastreos:[], tarimas:[], itemsTarima:[], devoluciones:[],
 
   /* Conteo */
   sesionActiva:null, modoConteo:'cruzado', equipo:'1', cItems:[],
@@ -2063,6 +2313,7 @@ const PAGE_NAMES={
   dashboard:'Dashboard', operadores:'Gestión de Operadores',
   productividad:'Productividad y Bonos',
   inbound:'Inbound · Recepción', putaway:'Putaway · Almacenaje', rastreos:'Rastreos de SKU',
+  devoluciones:'Devoluciones · Logística Inversa',
   'tareas-admin':'Panel de Tareas', 'mis-tareas':'Mis Tareas',
   clientes:'Clientes / SKU', ubicaciones:'Ubicaciones',
   layout:'Layout de Racks', conteo:'Conteos',
@@ -2097,6 +2348,7 @@ function navTo(pageId){
   if (pageId==='inbound')      renderInboundHome();
   if (pageId==='putaway')      renderPutawayHome();
   if (pageId==='rastreos')     { poblarRasSel(); renderRastreos(); }
+  if (pageId==='devoluciones') renderDevHome();
   if (pageId==='dashboard')    renderDashboard();
   if (pageId==='productividad'){ poblarProdSels(); renderProductividadEjec(); }
   if (pageId==='monitor')      renderMonitor();
@@ -2168,6 +2420,7 @@ function iniciarListeners(){
   listen('tarimas',    docs=>{ S.tarimas=docs;    refreshUI('tarimas');});
   listen('items_tarima',docs=>{ S.itemsTarima=docs;refreshUI('items_tarima');});
   listen('rastreos',   docs=>{ S.rastreos=docs;   refreshUI('rastreos');});
+  listen('devoluciones',docs=>{ S.devoluciones=docs;refreshUI('devoluciones');});
 }
 function detenerListeners(){ S.listeners.forEach(u=>{try{u()}catch(e){}}); S.listeners=[]; }
 
@@ -2183,7 +2436,9 @@ function refreshUI(origen){
   if (act==='page-inbound'  && (origen==='tarimas'||origen==='items_tarima')) renderInboundHome();
   if (act==='page-putaway'  && (origen==='tarimas'||origen==='items_tarima')) renderPutawayHome();
   if (act==='page-rastreos'    && origen==='rastreos')  renderRastreos();
+  if (act==='page-devoluciones'&& origen==='devoluciones') renderDevHome();
   if (origen==='rastreos')                             actualizarBadgeRastreos();
+  if (origen==='devoluciones')                         actualizarBadgeDev();
   if (act==='page-conteo'      && origen==='conteos')  { renderConteoList(); renderValidacionLive(); renderUbicsRegistradas(); }
   if (origen==='ops') poblarSels();
 }
@@ -2234,6 +2489,10 @@ function actualizarBadges(){
   const putPend=S.tarimas.filter(t=>(t.estatus==='validacion'||t.estatus==='putaway_proceso')&&enAlmacen(t)).length;
   const bput=document.getElementById('badge-putaway');
   if (bput){ bput.style.display=putPend>0?'inline':'none'; bput.textContent=putPend; }
+
+  /* Rastreos abiertos + Devoluciones en proceso */
+  if (typeof actualizarBadgeRastreos==='function') actualizarBadgeRastreos();
+  if (typeof actualizarBadgeDev==='function') actualizarBadgeDev();
 }
 
 /* ══════════ HELPERS DE FECHA ══════════ */
@@ -2785,6 +3044,13 @@ function abrirTareaDesdeOp(id){
     if (info) info.style.display='flex';
     if (txt)  txt.textContent=`Tarea asignada: "${t.titulo}" — almacena la tarima asignándole ubicación.`;
     navTo('putaway');
+
+  } else if (t.tipo==='devolucion'){
+    const info=document.getElementById('dev-tarea-info');
+    const txt =document.getElementById('dev-tarea-txt');
+    if (info) info.style.display='flex';
+    if (txt)  txt.textContent=`Tarea asignada: "${t.titulo}" — procesa la devolución/retiro y clasifícala.`;
+    navTo('devoluciones');
   }
 }
 
@@ -4183,6 +4449,217 @@ function actualizarBadgeRastreos(){
   if (b){ b.textContent=abiertos; b.style.display=abiertos>0?'inline-flex':'none'; }
 }
 
+/* ══════════ DEVOLUCIONES (logística inversa) ══════════
+   Flujo del PPT: tipo de ingreso → recepción/validación → evidencia
+   fotográfica → clasificación (Stock/Scrap/Validación técnica) → cierre. */
+
+const DEV = { id:'', items:[], fotoGuia:null, fotoProd:null, clasif:'', subclasif:'' };
+
+function devNueva(){
+  DEV.id='DEV-'+Date.now();
+  DEV.items=[]; DEV.fotoGuia=null; DEV.fotoProd=null; DEV.clasif=''; DEV.subclasif='';
+  /* Poblar clientes */
+  const sel=document.getElementById('dev-cli');
+  if (sel) sel.innerHTML='<option value="">— Selecciona cliente —</option>'+
+    S.clientes.map(c=>`<option value="${c.id||c.id_odoo}">${c.nombre}</option>`).join('');
+  ['dev-guia','dev-origen','dev-notif','dev-dano','dev-obs-final','dev-sku','dev-qty'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
+  document.getElementById('dev-home').style.display='none';
+  document.getElementById('dev-wizard').style.display='block';
+  devRenderItems();
+  devIrPaso(0);
+}
+
+function devCancelar(){
+  document.getElementById('dev-wizard').style.display='none';
+  document.getElementById('dev-home').style.display='block';
+  renderDevHome();
+}
+
+function devIrPaso(p){
+  ['dev-s0','dev-s1','dev-s2','dev-s3'].forEach((id,i)=>{
+    const el=document.getElementById(id); if(el) el.style.display=i===p?'block':'none';
+  });
+  document.querySelectorAll('[data-dstep]').forEach(el=>{
+    const n=Number(el.dataset.dstep);
+    el.classList.toggle('active',n===p);
+    el.classList.toggle('done',n<p);
+  });
+}
+
+function devToggleMotivo(){
+  const tipo=document.getElementById('dev-tipo')?.value;
+  const wrap=document.getElementById('dev-motivo-wrap');
+  if (wrap) wrap.style.display=tipo==='retiro'?'none':'block';
+}
+
+function devAddItem(){
+  const sku=(document.getElementById('dev-sku')?.value||'').trim();
+  const qty=Number(document.getElementById('dev-qty')?.value)||0;
+  if (!sku){ toast('Escribe o escanea un SKU','warn'); return; }
+  DEV.items.push({sku,cantidad:qty});
+  document.getElementById('dev-sku').value='';
+  document.getElementById('dev-qty').value='';
+  document.getElementById('dev-sku').focus();
+  devRenderItems();
+}
+
+function devDelItem(i){ DEV.items.splice(i,1); devRenderItems(); }
+
+function devRenderItems(){
+  const el=document.getElementById('dev-items-list');
+  const badge=document.getElementById('dev-items-badge');
+  if (badge) badge.textContent=DEV.items.length+' ítems';
+  if (!el) return;
+  if (!DEV.items.length){ el.innerHTML='<p style="font-size:11px;color:var(--txt3);">Agrega los SKUs recibidos.</p>'; return; }
+  el.innerHTML=DEV.items.map((it,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg3);border-radius:6px;margin-bottom:4px;">
+      <code style="font-size:11px;flex:1;">${it.sku}</code>
+      <span style="font-family:var(--mono);font-size:12px;">${Number(it.cantidad).toLocaleString('es-MX')}</span>
+      <button class="btn btn-xs btn-del" onclick="devDelItem(${i})"><i class="ti ti-x"></i></button>
+    </div>`).join('');
+}
+
+function devProcFoto(cual,inp){
+  const f=inp.files?.[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    const data=e.target.result;
+    if (cual==='guia'){ DEV.fotoGuia=data; }
+    else { DEV.fotoProd=data; }
+    const prev=document.getElementById('dev-prev-'+cual);
+    const icn=document.getElementById('dev-icn-'+cual);
+    if (prev){ prev.src=data; prev.style.display='block'; }
+    if (icn) icn.style.display='none';
+    toast('Foto lista','success');
+  };
+  r.readAsDataURL(f);
+}
+
+function devSelClasif(c){
+  DEV.clasif=c; DEV.subclasif='';
+  document.querySelectorAll('.dev-clasif').forEach(el=>{
+    el.style.borderColor=el.dataset.clasif===c?'var(--orange)':'var(--border2)';
+    el.style.background=el.dataset.clasif===c?'var(--orange-l)':'transparent';
+  });
+  /* Subclasificación según la opción */
+  const sub=document.getElementById('dev-subclasif');
+  if (!sub) return;
+  if (c==='stock'){
+    sub.style.display='block';
+    sub.innerHTML=`<label class="fl">¿Empaque dañado? Acción de reacondicionamiento</label>
+      <select class="fc" id="dev-sub"><option value="ok">Empaque OK — directo a stock</option>
+      <option value="reacond">Reacondicionar</option>
+      <option value="alterno">Canal alterno (Colecta / Shopify)</option></select>`;
+  } else if (c==='scrap'){
+    sub.style.display='block';
+    sub.innerHTML=`<label class="fl">Destino del scrap</label>
+      <select class="fc" id="dev-sub"><option value="scrap">Scrap (baja)</option>
+      <option value="outlet">Outlet / refacciones (según viabilidad)</option></select>`;
+  } else if (c==='tecnica'){
+    sub.style.display='block';
+    sub.innerHTML=`<div class="alert al-warn" style="margin:0;"><i class="ti ti-tool"></i><div>Producto enviado a prueba funcional especializada. Quedará pendiente de resultado técnico.</div></div>`;
+  }
+}
+
+async function devCerrar(){
+  if (!DEV.items.length){ toast('Agrega al menos un SKU recibido','warn'); return; }
+  if (!DEV.clasif){ toast('Selecciona una clasificación','warn'); return; }
+  const cliId=document.getElementById('dev-cli')?.value||'';
+  if (!cliId){ toast('Selecciona el cliente','warn'); return; }
+
+  const btn=document.getElementById('btn-dev-cerrar');
+  if (btn){ btn.disabled=true; btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Guardando…'; }
+
+  const cliNombre=S.clientes.find(c=>String(c.id||c.id_odoo)===String(cliId))?.nombre||cliId;
+  const subEl=document.getElementById('dev-sub');
+  const estadoFinal=DEV.clasif==='tecnica'?'clasificado':'cerrado';
+
+  try {
+    await fsSet(`devoluciones/${DEV.id}`,{
+      tipo:document.getElementById('dev-tipo')?.value||'devolucion',
+      motivo:document.getElementById('dev-motivo')?.value||'',
+      clienteId:cliId, cliente:cliNombre,
+      guia:document.getElementById('dev-guia')?.value||'',
+      origen:document.getElementById('dev-origen')?.value||'',
+      notificacionPrevia:document.getElementById('dev-notif')?.value||'',
+      items:[...DEV.items],
+      fotoGuia:DEV.fotoGuia||'', fotoProd:DEV.fotoProd||'',
+      dano:document.getElementById('dev-dano')?.value||'',
+      clasificacion:DEV.clasif, subclasificacion:subEl?.value||'',
+      observaciones:document.getElementById('dev-obs-final')?.value||'',
+      estado:estadoFinal, almacen:S.almacen||'',
+      procesadoPor:S.nombre, fecha:new Date().toISOString(),
+    });
+    toast('✅ Devolución registrada','success');
+    if (typeof auditar==='function') auditar('devolucion',`${DEV.id} · ${cliNombre} · ${DEV.clasif}`);
+
+    /* Completar tarea si venía de una */
+    S.tareas=await fsGet('tareas');
+    await completarTareaActiva(['devolucion','otro']);
+
+    devCancelar();
+  } catch(e){ toast('❌ Error: '+e.message,'error'); }
+  finally { if(btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-circle-check"></i>Registrar y cerrar devolución'; } }
+}
+
+const DEV_CLASIF_LBL={stock:'🟢 Stock',scrap:'🔴 Scrap/Outlet',tecnica:'🟡 Validación técnica'};
+
+function renderDevHome(){
+  const el=document.getElementById('dev-lista'); if(!el) return;
+  /* KPIs */
+  const hoy=new Date().toDateString();
+  const devs=S.devoluciones.filter(enAlmacen);
+  const proc=devs.filter(d=>d.estado==='proceso'||d.estado==='clasificado').length;
+  const stockHoy=devs.filter(d=>d.clasificacion==='stock'&&new Date(d.fecha).toDateString()===hoy).length;
+  const scrapHoy=devs.filter(d=>d.clasificacion==='scrap'&&new Date(d.fecha).toDateString()===hoy).length;
+  const tecnica=devs.filter(d=>d.clasificacion==='tecnica'&&d.estado!=='cerrado').length;
+  const setM=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent=v;};
+  setM('dev-kpi-proceso',proc); setM('dev-kpi-stock',stockHoy);
+  setM('dev-kpi-scrap',scrapHoy); setM('dev-kpi-tecnica',tecnica);
+
+  const filtro=document.getElementById('dev-filtro')?.value;
+  let lista=devs;
+  if (filtro==='proceso') lista=lista.filter(d=>d.estado==='proceso'||d.estado==='clasificado');
+  else if (filtro) lista=lista.filter(d=>d.estado===filtro);
+  lista.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+
+  if (!lista.length){ el.innerHTML='<div class="empty"><i class="ti ti-package"></i><p>Sin devoluciones con ese filtro.</p></div>'; return; }
+  el.innerHTML=lista.map(d=>{
+    const nSku=(d.items||[]).length;
+    const nPz=(d.items||[]).reduce((s,i)=>s+Number(i.cantidad||0),0);
+    return `<div style="border:1px solid var(--border);border-radius:var(--r);padding:11px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:6px;flex-wrap:wrap;">
+        <span style="font-weight:700;font-size:12px;">${d.tipo==='retiro'?'Retiro':'Devolución'} · ${d.cliente||'—'}</span>
+        <span class="est ${d.clasificacion==='stock'?'est-completada':d.clasificacion==='scrap'?'est-pausa':'est-pendiente'}">${DEV_CLASIF_LBL[d.clasificacion]||'Sin clasificar'}</span>
+      </div>
+      <div style="font-size:11px;color:var(--txt2);margin-bottom:3px;">
+        ${nSku} SKUs · ${nPz.toLocaleString('es-MX')} pzs${d.guia?' · Guía: '+d.guia:''}
+      </div>
+      ${d.dano?`<div style="font-size:10px;color:var(--red);margin-bottom:3px;">⚠ ${d.dano}</div>`:''}
+      <div style="font-size:10px;color:var(--txt3);">Por ${d.procesadoPor||'—'} · ${(d.fecha||'').split('T')[0]} ${fmtHora(d.fecha)}</div>
+      ${d.estado==='clasificado'&&d.clasificacion==='tecnica'
+        ? `<div style="margin-top:7px;"><button class="btn btn-xs btn-ok" onclick="devResolverTecnica('${d.id}')"><i class="ti ti-check"></i>Resolver validación técnica</button></div>`
+        : ''}
+    </div>`;
+  }).join('');
+}
+
+async function devResolverTecnica(id){
+  const d=S.devoluciones.find(x=>x.id===id); if(!d) return;
+  const r=prompt('Resultado de la validación técnica (¿pasó la prueba? destino final):');
+  if (r===null) return;
+  try {
+    await fsUpd(`devoluciones/${id}`,{estado:'cerrado',resultadoTecnico:r,resueltoPor:S.nombre,fechaResuelto:new Date().toISOString()});
+    toast('Validación técnica resuelta','success');
+  } catch(e){ toast('Error: '+e.message,'error'); }
+}
+
+function actualizarBadgeDev(){
+  const proc=S.devoluciones.filter(d=>(d.estado==='proceso'||d.estado==='clasificado')&&enAlmacen(d)).length;
+  const b=document.getElementById('badge-devoluciones');
+  if (b){ b.textContent=proc; b.style.display=proc>0?'inline-flex':'none'; }
+}
+
 function filtrarSKUs(){
   const cli=document.getElementById('flt-cli')?.value||'';
   const q=(document.getElementById('flt-sku')?.value||'').toLowerCase().trim();
@@ -5428,6 +5905,108 @@ function renderMonitor(){
       <td>${!c.validado?`<button class="btn btn-xs btn-ok" onclick="validarCI('${c.id}')"><i class="ti ti-check"></i>Validar</button>`:'—'}</td>
     </tr>`;
   }).join(''):'<tr><td colspan="8"><div class="empty"><i class="ti ti-scan"></i><p>Sin check-ins con ese filtro</p></div></td></tr>';
+
+  renderMonitorOperaciones();
+}
+
+/* ── Tablas de Inbound, Putaway, Rastreos, Devoluciones en el Monitor ── */
+function renderMonitorOperaciones(){
+  const fOk=x=>{
+    if (!filtroMonitor(x)) return false;
+    return true;
+  };
+
+  /* Inbound */
+  const tbInb=document.getElementById('tb-mon-inbound');
+  if (tbInb){
+    const tar=S.tarimas.filter(t=>(t.recibidoPor||t.creadoPor)&&fOk(t))
+      .sort((a,b)=>((b.fechaCierre||b.fechaCreacion||'')).localeCompare(a.fechaCierre||a.fechaCreacion||''));
+    tbInb.innerHTML=tar.length?tar.map(t=>{
+      const its=S.itemsTarima.filter(i=>i.tarimaId===t.id);
+      const pz=its.reduce((s,i)=>s+Number(i.cantidad||i.qty||0),0);
+      const est={abierta:'En captura',validacion:'Zona Validación',putaway_proceso:'En Putaway',disponible:'Almacenada'}[t.estatus]||t.estatus;
+      return `<tr>
+        <td style="font-size:11px;font-family:var(--mono);">${(t.fechaCierre||t.fechaCreacion||'').split('T')[0]}</td>
+        <td><code style="font-size:10px;">${t.lp||t.id}</code></td>
+        <td style="font-size:11px;">${t.cliente||'—'}</td>
+        <td style="font-size:11px;">${t.recibidoPor||t.creadoPor||'—'}</td>
+        <td style="font-family:var(--mono);">${its.length}</td>
+        <td style="font-family:var(--mono);">${pz.toLocaleString('es-MX')}</td>
+        <td><span class="est ${t.estatus==='disponible'?'est-completada':'est-proceso'}">${est}</span></td>
+      </tr>`;
+    }).join(''):'<tr><td colspan="7"><div class="empty"><i class="ti ti-package-import"></i><p>Sin tarimas con ese filtro</p></div></td></tr>';
+  }
+
+  /* Putaway */
+  const tbPut=document.getElementById('tb-mon-putaway');
+  if (tbPut){
+    const alm=S.tarimas.filter(t=>t.estatus==='disponible'&&t.fechaPutaway&&fOk(t))
+      .sort((a,b)=>(b.fechaPutaway||'').localeCompare(a.fechaPutaway||''));
+    tbPut.innerHTML=alm.length?alm.map(t=>`
+      <tr>
+        <td style="font-size:11px;font-family:var(--mono);">${(t.fechaPutaway||'').split('T')[0]}</td>
+        <td><code style="font-size:10px;">${t.lp||t.id}</code></td>
+        <td style="font-size:11px;">${t.cliente||'—'}</td>
+        <td style="font-size:11px;">${t.almacenadoPor||'—'}</td>
+        <td><code style="font-size:11px;color:var(--blue);font-weight:700;">${t.ubicacionFinal||'—'}</code></td>
+        <td><span class="est est-completada">Almacenada</span></td>
+      </tr>`).join(''):'<tr><td colspan="6"><div class="empty"><i class="ti ti-forklift"></i><p>Sin almacenajes con ese filtro</p></div></td></tr>';
+  }
+
+  /* Rastreos */
+  const tbRas=document.getElementById('tb-mon-rastreos');
+  if (tbRas){
+    const ras=S.rastreos.filter(fOk).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+    tbRas.innerHTML=ras.length?ras.map(r=>`
+      <tr>
+        <td style="font-size:11px;font-family:var(--mono);">${(r.fecha||'').split('T')[0]}</td>
+        <td><code style="font-size:11px;">${r.sku}</code></td>
+        <td style="font-size:11px;">${r.cliente||'—'}</td>
+        <td>${r.prioridad==='alta'?'🔴':r.prioridad==='media'?'🟡':'🟢'}</td>
+        <td style="font-size:11px;">${r.levantadoPor||'—'}</td>
+        <td><span class="est ${r.estado==='resuelto'?'est-completada':'est-pausa'}">${r.estado==='resuelto'?'Resuelto':'Abierto'}</span></td>
+        <td style="font-size:11px;color:var(--txt2);">${r.resolucion||'—'}</td>
+      </tr>`).join(''):'<tr><td colspan="7"><div class="empty"><i class="ti ti-search"></i><p>Sin rastreos con ese filtro</p></div></td></tr>';
+  }
+
+  /* Devoluciones */
+  const tbDev=document.getElementById('tb-mon-devoluciones');
+  if (tbDev){
+    const dev=S.devoluciones.filter(fOk).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+    tbDev.innerHTML=dev.length?dev.map(d=>`
+      <tr>
+        <td style="font-size:11px;font-family:var(--mono);">${(d.fecha||'').split('T')[0]}</td>
+        <td style="font-size:11px;">${d.tipo==='retiro'?'Retiro':'Devolución'}</td>
+        <td style="font-size:11px;">${d.cliente||'—'}</td>
+        <td style="font-size:11px;">${d.procesadoPor||'—'}</td>
+        <td style="font-family:var(--mono);">${(d.items||[]).length}</td>
+        <td><span class="est ${d.clasificacion==='stock'?'est-completada':d.clasificacion==='scrap'?'est-pausa':'est-pendiente'}">${({stock:'🟢 Stock',scrap:'🔴 Scrap',tecnica:'🟡 Técnica'})[d.clasificacion]||'—'}</span></td>
+        <td><span class="est ${d.estado==='cerrado'?'est-completada':'est-proceso'}">${d.estado||'—'}</span></td>
+      </tr>`).join(''):'<tr><td colspan="7"><div class="empty"><i class="ti ti-arrow-back-up"></i><p>Sin devoluciones con ese filtro</p></div></td></tr>';
+  }
+}
+
+/* Exports del día por operación */
+function expAdmInbound(){
+  const dia=diaExport();
+  const rows=[['Fecha','LP','Cliente','Operador','SKU','Descripción','Cantidad','Condición','Estatus']];
+  S.tarimas.filter(t=>enAlmacen(t)&&((t.fechaCierre||t.fechaCreacion||'').split('T')[0]===dia)).forEach(t=>{
+    const its=S.itemsTarima.filter(i=>i.tarimaId===t.id);
+    if (!its.length) rows.push([(t.fechaCierre||t.fechaCreacion||'').split('T')[0],t.lp||t.id,t.cliente||'',t.recibidoPor||t.creadoPor||'','','','','',t.estatus||'']);
+    its.forEach(i=>rows.push([(t.fechaCierre||t.fechaCreacion||'').split('T')[0],t.lp||t.id,t.cliente||'',t.recibidoPor||t.creadoPor||'',i.sku||'',i.descripcion||'',i.cantidad||i.qty||0,i.condicion||'',t.estatus||'']));
+  });
+  if (rows.length<2){ toast('Sin tarimas ese día','warn'); return; }
+  expXLSX(rows,`Inbound_${dia}.xlsx`);
+}
+
+function expAdmDevoluciones(){
+  const dia=diaExport();
+  const rows=[['Fecha','Tipo','Cliente','Operador','Guía','SKU','Cantidad','Clasificación','Subclasif.','Daño','Estado']];
+  S.devoluciones.filter(d=>enAlmacen(d)&&((d.fecha||'').split('T')[0]===dia)).forEach(d=>{
+    (d.items||[]).forEach(i=>rows.push([(d.fecha||'').split('T')[0],d.tipo||'',d.cliente||'',d.procesadoPor||'',d.guia||'',i.sku||'',i.cantidad||0,d.clasificacion||'',d.subclasificacion||'',d.dano||'',d.estado||'']));
+  });
+  if (rows.length<2){ toast('Sin devoluciones ese día','warn'); return; }
+  expXLSX(rows,`Devoluciones_${dia}.xlsx`);
 }
 
 async function validarConteoDirigido(id){
@@ -5833,7 +6412,7 @@ function toast(msg,tipo='info'){
    Dashboard para presentar a dirección: KPIs, gráficos y ranking
    de puntos por operador (resultados × dificultad de tarea). */
 
-const PUNTOS_BASE = { checkin:10, dirigido:15, cruzado:20, tercero:25, inbound:15, putaway:12 };
+const PUNTOS_BASE = { checkin:10, dirigido:15, cruzado:20, tercero:25, inbound:15, putaway:12, rastreo:8, devolucion:14 };
 
 /* Puntos por actividad según su naturaleza:
    - Conteo/check-in/inbound: esfuerzo = piezas/ítems verificados (con bono eficiencia)
@@ -5841,9 +6420,8 @@ const PUNTOS_BASE = { checkin:10, dirigido:15, cruzado:20, tercero:25, inbound:1
 function puntosDe(a, mediaP){
   let base=PUNTOS_BASE[a.tipo]||10;
 
-  if (a.tipo==='putaway'){
-    /* Cada almacenaje vale puntos planos por movimiento.
-       NO se multiplica por piezas, para no inflar al montacarguista. */
+  if (a.tipo==='putaway' || a.tipo==='rastreo' || a.tipo==='devolucion'){
+    /* Actividades de movimiento/gestión: puntos planos, no escalan por piezas */
     return base;
   }
 
@@ -5943,6 +6521,26 @@ function construirActividades(){
       inicio:t.fechaPutaway, fin:t.fechaPutaway, ubicaciones:1, fecha:t.fechaPutaway});
   });
 
+  /* Rastreos resueltos: esfuerzo = encontrar el SKU (plano). */
+  (S.rastreos||[]).filter(r=>r.estado==='resuelto').forEach(r=>{
+    const f=r.fechaResuelto||r.fecha;
+    if (!enRango(f,rango)) return;
+    if (!enAlmacen(r)) return;
+    acts.push({tipo:'rastreo', usuario:r.resueltoPor||r.levantadoPor||'—', cliente:r.cliente||'',
+      clienteId:r.clienteId||'', almacen:r.almacen||'', piezas:0,
+      inicio:f, fin:f, ubicaciones:1, fecha:f});
+  });
+
+  /* Devoluciones procesadas: esfuerzo = clasificación (plano). */
+  (S.devoluciones||[]).forEach(d=>{
+    if (!enRango(d.fecha,rango)) return;
+    if (!enAlmacen(d)) return;
+    const piezas=(d.items||[]).reduce((s,i)=>s+Number(i.cantidad||0),0);
+    acts.push({tipo:'devolucion', usuario:d.procesadoPor||'—', cliente:d.cliente||'',
+      clienteId:d.clienteId||'', almacen:d.almacen||'', piezas,
+      inicio:d.fecha, fin:d.fecha, ubicaciones:1, fecha:d.fecha});
+  });
+
   return acts.filter(a=>
     (!opF||a.usuario===opF) &&
     (!cliF||String(a.clienteId)===cliF) &&
@@ -6039,12 +6637,12 @@ function pintarCharts(ops, acts){
   destruirChart('chart-actividades');
   const cv2=document.getElementById('chart-actividades');
   if (cv2){
-    const tipos={cruzado:0,dirigido:0,checkin:0,inbound:0,putaway:0};
+    const tipos={cruzado:0,dirigido:0,checkin:0,inbound:0,putaway:0,rastreo:0,devolucion:0};
     acts.forEach(a=>tipos[a.tipo]=(tipos[a.tipo]||0)+1);
     _charts['chart-actividades']=new Chart(cv2,{type:'doughnut',
-      data:{labels:['Conteo Cruzado','Conteo Dirigido','Check-In','Inbound','Putaway'],
-        datasets:[{data:[tipos.cruzado,tipos.dirigido,tipos.checkin,tipos.inbound,tipos.putaway],
-          backgroundColor:[c1,c4,c3,c2,css.getPropertyValue('--green').trim()],borderWidth:0}]},
+      data:{labels:['C. Cruzado','C. Dirigido','Check-In','Inbound','Putaway','Rastreos','Devoluciones'],
+        datasets:[{data:[tipos.cruzado,tipos.dirigido,tipos.checkin,tipos.inbound,tipos.putaway,tipos.rastreo,tipos.devolucion],
+          backgroundColor:[c1,c4,c3,c2,css.getPropertyValue('--green').trim(),css.getPropertyValue('--amber').trim(),css.getPropertyValue('--red').trim()],borderWidth:0}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}});
   }
 
