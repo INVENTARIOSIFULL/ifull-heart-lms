@@ -482,8 +482,13 @@ body.role-operador .adm{display:none!important;}
       <button class="nav-item" data-page="checkin">
         <i class="ti ti-scan"></i><span class="nlbl">Check-In</span>
       </button>
-      <button class="nav-item" data-page="montacargas">
-        <i class="ti ti-forklift"></i><span class="nlbl">Montacargas</span>
+      <button class="nav-item" data-page="inbound">
+        <i class="ti ti-package-import"></i><span class="nlbl">Inbound</span>
+        <span class="nbadge" id="badge-inbound" style="display:none;">0</span>
+      </button>
+      <button class="nav-item" data-page="putaway">
+        <i class="ti ti-forklift"></i><span class="nlbl">Putaway</span>
+        <span class="nbadge" id="badge-putaway" style="display:none;">0</span>
       </button>
       <button class="nav-item" data-page="rastreos">
         <i class="ti ti-search"></i><span class="nlbl">Rastreos</span>
@@ -598,6 +603,8 @@ body.role-operador .adm{display:none!important;}
                 <option value="cruzado">Conteo Cruzado</option>
                 <option value="dirigido">Conteo Dirigido</option>
                 <option value="checkin">Check-In</option>
+                <option value="inbound">Inbound</option>
+                <option value="putaway">Putaway</option>
               </select>
             </div>
             <button class="btn btn-sm btn-p" onclick="expProductividadEjec()"><i class="ti ti-file-spreadsheet"></i>Exportar</button>
@@ -994,72 +1001,460 @@ body.role-operador .adm{display:none!important;}
         </div>
       </div>
 
-      <!-- ═══ MONTACARGAS ═══ -->
-      <div class="page" id="page-montacargas">
-        <div class="alert al-info">
-          <i class="ti ti-forklift"></i>
-          <div>Registra acomodos en rack y movimientos de mercancía. Cada movimiento documenta de dónde a dónde se movió, qué SKU y cuánto.</div>
+      <!-- ═══ INBOUND (recepción de tarimas) ═══ -->
+      <!-- ═══ INBOUND (recepción) — Parte 2: wizard completo ═══ -->
+      <div class="page" id="page-inbound">
+        <div id="inbound-tarea-info" style="display:none;" class="alert al-orange">
+          <i class="ti ti-package-import"></i><div id="inbound-tarea-txt"></div>
         </div>
 
-        <div id="mtc-tarea-info" class="alert al-warn" style="display:none;"></div>
-
-        <div class="twocol">
-          <div class="card">
-            <div class="chdr"><div class="ctitle"><i class="ti ti-arrows-move"></i>Nuevo movimiento</div></div>
-
-            <div class="fg"><label class="fl">Tipo de movimiento</label>
-              <select class="fc" id="mtc-tipo">
-                <option value="acomodo">Acomodo en rack (entrada a posición)</option>
-                <option value="reubicacion">Reubicación (cambio de posición)</option>
-                <option value="salida">Salida de posición (surtido/embarque)</option>
-                <option value="consolidacion">Consolidación de tarimas</option>
-              </select></div>
-
-            <div class="fg"><label class="fl">Cliente</label>
-              <select class="fc" id="mtc-cli"><option value="">Selecciona cliente</option></select></div>
-
-            <div class="frow c2">
-              <div class="fg"><label class="fl">Desde (origen)</label>
-                <div style="display:flex;gap:6px;">
-                  <input class="fc" id="mtc-origen" placeholder="DROP / A/12/N1" style="flex:1;">
-                  <button class="btn btn-sm" onclick="abrirScanner('mtc-origen')"><i class="ti ti-scan"></i></button>
-                </div></div>
-              <div class="fg"><label class="fl">Hasta (destino)</label>
-                <div style="display:flex;gap:6px;">
-                  <input class="fc" id="mtc-destino" placeholder="A/25/N2" style="flex:1;">
-                  <button class="btn btn-sm" onclick="abrirScanner('mtc-destino')"><i class="ti ti-scan"></i></button>
-                </div></div>
-            </div>
-
-            <div id="mtc-items-list" style="margin:6px 0;"></div>
-            <div style="display:flex;gap:8px;margin-bottom:12px;align-items:flex-start;">
-              <div class="ac-wrap" style="flex:2;">
-                <input class="fc" id="mtc-sku" placeholder="SKU o descripción…" autocomplete="off"
-                       oninput="acBuscar('mtc-sku',this.value)" onkeydown="acNav(event,'mtc-sku')"
-                       onfocus="acBuscar('mtc-sku',this.value)" onblur="setTimeout(()=>acCerrar('mtc-sku'),150)">
-                <div class="ac-list" id="ac-mtc-sku"></div>
-              </div>
-              <button class="btn btn-sm" onclick="abrirScanner('mtc-sku')"><i class="ti ti-scan"></i></button>
-              <input class="fc" id="mtc-qty" placeholder="Cant." type="number" min="0" style="flex:1;" onkeydown="if(event.key==='Enter')mtcAddItem()">
-              <button class="btn btn-sm btn-p" onclick="mtcAddItem()"><i class="ti ti-plus"></i></button>
-            </div>
-
-            <div class="fg"><label class="fl">Observaciones (opcional)</label>
-              <textarea class="fc" id="mtc-obs" placeholder="Ej: tarima reacomodada por daño, consolidación de 2 posiciones…" style="min-height:50px;"></textarea></div>
-
-            <button class="btn btn-p" id="btn-mtc" onclick="guardarMovimiento()" style="width:100%;justify-content:center;padding:11px;">
-              <i class="ti ti-check"></i>Registrar movimiento
-            </button>
+        <!-- ── Vista HOME (KPIs + lista tarimas) ── -->
+        <div id="inb-home">
+          <div class="mgrid">
+            <div class="mcard"><div class="macc" style="background:var(--orange);"></div>
+              <div class="mlbl">En captura</div><div class="mval" id="inb-kpi-abierta">–</div><div class="msub">tarimas sin cerrar</div></div>
+            <div class="mcard"><div class="macc" style="background:var(--blue);"></div>
+              <div class="mlbl">En Zona Validación</div><div class="mval" id="inb-kpi-val">–</div><div class="msub">cerradas, esperando Putaway</div></div>
+            <div class="mcard"><div class="macc" style="background:var(--green);"></div>
+              <div class="mlbl">Ítems hoy</div><div class="mval" id="inb-kpi-items">–</div><div class="msub">capturados</div></div>
           </div>
 
-          <div>
+          <div class="card">
+            <div class="chdr">
+              <div class="ctitle"><i class="ti ti-package-import"></i>Tarimas en captura</div>
+              <button class="btn btn-p btn-sm" onclick="inbNuevaTarima()"><i class="ti ti-plus"></i>Nueva tarima</button>
+            </div>
+            <div id="inb-lista-abiertas"><div class="empty"><i class="ti ti-package"></i><p>No hay tarimas abiertas por el momento.</p></div></div>
+          </div>
+
+          <div class="card">
+            <div class="chdr">
+              <div class="ctitle"><i class="ti ti-circle-check" style="color:var(--blue);"></i>En Zona Validación</div>
+              <span style="font-size:10px;color:var(--txt2);">Esperando Putaway</span>
+            </div>
+            <div id="inb-lista-validacion"><div class="empty"><i class="ti ti-package"></i><p>Sin tarimas en Zona Validación.</p></div></div>
+          </div>
+        </div>
+
+        <!-- ══════════ WIZARD DE INBOUND ══════════
+             Paso 0: datos LP (código + cliente + referencia PO)
+             Paso 1: captura de ítems (SKU/EAN, desc, qty, medidas, foto)
+             Paso 2: resumen + cierre a Zona Validación
+        ════════════════════════════════════════════ -->
+        <div id="inb-wizard" style="display:none;">
+
+          <!-- Steps -->
+          <div class="steps" id="inb-steps">
+            <div class="step active" data-istep="0"><div class="stepn">1</div><span>Datos LP</span></div>
+            <div class="step" data-istep="1"><div class="stepn">2</div><span>Captura ítems</span></div>
+            <div class="step" data-istep="2"><div class="stepn">3</div><span>Cierre</span></div>
+          </div>
+
+          <!-- ── Paso 0: Datos de la tarima ── -->
+          <div id="inb-s0">
             <div class="card">
-              <div class="chdr"><div class="ctitle"><i class="ti ti-history"></i>Mis movimientos de hoy</div></div>
-              <div id="mtc-historial"></div>
+              <div class="chdr">
+                <div class="ctitle"><i class="ti ti-barcode"></i>Identificación de tarima</div>
+                <button class="btn btn-sm" onclick="inbCancelarWizard()"><i class="ti ti-arrow-left"></i>Volver</button>
+              </div>
+              <div class="frow c2">
+                <div class="fg">
+                  <label class="fl">Código LP <span style="color:var(--red);">*</span></label>
+                  <div style="display:flex;gap:8px;">
+                    <input class="fc" id="inb-lp" placeholder="LP-2024-001234" style="flex:1;font-family:var(--mono);">
+                    <button class="btn btn-sm" onclick="abrirScanner('inb-lp')" title="Escanear LP"><i class="ti ti-scan"></i></button>
+                  </div>
+                  <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-xs" onclick="inbGenerarLP()"><i class="ti ti-sparkles"></i>Generar auto</button>
+                    <span style="font-size:10px;color:var(--txt3);">Formato: LP-YYYY-XXXXXX</span>
+                  </div>
+                </div>
+                <div class="fg">
+                  <label class="fl">Cliente <span style="color:var(--red);">*</span></label>
+                  <select class="fc" id="inb-cli"><option value="">— Selecciona cliente —</option></select>
+                </div>
+              </div>
+              <div class="frow c2">
+                <div class="fg">
+                  <label class="fl">Referencia PO / Embarque</label>
+                  <input class="fc" id="inb-po" placeholder="PO-2024-0088 (opcional)">
+                </div>
+                <div class="fg">
+                  <label class="fl">Proveedor</label>
+                  <input class="fc" id="inb-prov" placeholder="Nombre del proveedor (opcional)">
+                </div>
+              </div>
+              <div class="fg">
+                <label class="fl">Observaciones generales de la tarima</label>
+                <textarea class="fc" id="inb-obs-gen" placeholder="Ej: tarima con esquineros, precinto roto…" style="min-height:54px;"></textarea>
+              </div>
+              <div class="div"></div>
+              <div class="bgrp">
+                <button class="btn btn-p" onclick="inbIrPaso1()"><i class="ti ti-arrow-right"></i>Siguiente: Capturar ítems</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Paso 1: Captura de ítems ── -->
+          <div id="inb-s1" style="display:none;">
+            <div class="twocol" style="grid-template-columns:1.3fr 1fr;">
+              <!-- Columna izquierda: formulario ítem -->
+              <div>
+                <div class="card">
+                  <div class="chdr">
+                    <div class="ctitle">
+                      <i class="ti ti-package"></i>
+                      Tarima <code id="inb-lp-lbl" style="font-size:13px;"></code>
+                    </div>
+                    <div class="bgrp">
+                      <span class="est est-proceso" id="inb-items-badge">0 ítems</span>
+                      <button class="btn btn-sm" onclick="inbVolver0()"><i class="ti ti-arrow-left"></i>Paso 1</button>
+                    </div>
+                  </div>
+
+                  <div class="alert al-info" style="margin-bottom:14px;">
+                    <i class="ti ti-info-circle"></i>
+                    <div>Agrega cada referencia de la tarima. Campos con <strong>*</strong> son obligatorios. Foto de evidencia es recomendada. Al terminar pulsa <strong>Cerrar tarima</strong>.</div>
+                  </div>
+
+                  <!-- Escáner / búsqueda de SKU -->
+                  <div class="fg">
+                    <label class="fl">SKU / Ref. interna / EAN <span style="color:var(--red);">*</span></label>
+                    <div style="display:flex;gap:8px;">
+                      <div class="ac-wrap" style="flex:1;">
+                        <input class="fc" id="inb-sku" placeholder="Escanea o digita…" autocomplete="off"
+                               oninput="inbAcBuscar(this.value)"
+                               onkeydown="inbAcNav(event)"
+                               onfocus="inbAcBuscar(this.value)"
+                               onblur="setTimeout(()=>inbAcCerrar(),160)">
+                        <div class="ac-list" id="ac-inb-sku"></div>
+                      </div>
+                      <button class="btn btn-sm" onclick="abrirScanner('inb-sku')" title="Escanear código"><i class="ti ti-scan"></i></button>
+                    </div>
+                  </div>
+
+                  <div class="frow c2">
+                    <div class="fg">
+                      <label class="fl">EAN / Código de barras</label>
+                      <div style="display:flex;gap:8px;">
+                        <input class="fc" id="inb-ean" placeholder="EAN-13 / UPC" style="flex:1;font-family:var(--mono);">
+                        <button class="btn btn-sm" onclick="abrirScanner('inb-ean')" title="Escanear EAN"><i class="ti ti-scan"></i></button>
+                      </div>
+                    </div>
+                    <div class="fg">
+                      <label class="fl">Descripción</label>
+                      <input class="fc" id="inb-desc" placeholder="Descripción del producto">
+                    </div>
+                  </div>
+
+                  <div class="frow c3">
+                    <div class="fg">
+                      <label class="fl">Cantidad <span style="color:var(--red);">*</span></label>
+                      <input class="fc" type="number" id="inb-qty" min="0" placeholder="0"
+                             onkeydown="if(event.key==='Enter')inbAddItem()">
+                    </div>
+                    <div class="fg">
+                      <label class="fl">Unidad</label>
+                      <select class="fc" id="inb-unidad">
+                        <option value="PZA">PZA</option>
+                        <option value="CAJA">CAJA</option>
+                        <option value="PAR">PAR</option>
+                        <option value="KG">KG</option>
+                        <option value="MT">MT</option>
+                        <option value="JGO">JGO</option>
+                        <option value="OTRO">OTRO</option>
+                      </select>
+                    </div>
+                    <div class="fg">
+                      <label class="fl">Condición</label>
+                      <select class="fc" id="inb-cond">
+                        <option value="buena">Buena</option>
+                        <option value="danada">Dañada</option>
+                        <option value="abierta">Abierta</option>
+                        <option value="incompleta">Incompleta</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Atributos variables (color, talla, medidas) -->
+                  <div id="inb-attrs-toggle" style="margin-bottom:12px;">
+                    <button class="btn btn-sm btn-xs" style="font-size:11px;" onclick="inbToggleAttrs()">
+                      <i class="ti ti-adjustments-horizontal"></i><span id="inb-attrs-lbl">+ Atributos (color, talla, medidas)</span>
+                    </button>
+                  </div>
+                  <div id="inb-attrs" style="display:none;">
+                    <div class="frow c3">
+                      <div class="fg"><label class="fl">Color</label><input class="fc" id="inb-color" placeholder="Rojo, Azul…"></div>
+                      <div class="fg"><label class="fl">Talla / Modelo</label><input class="fc" id="inb-talla" placeholder="XL, 42, M…"></div>
+                      <div class="fg"><label class="fl">Medidas (L×A×H)</label><input class="fc" id="inb-medidas" placeholder="120×80×60 cm"></div>
+                    </div>
+                    <div class="fg"><label class="fl">Peso (kg)</label><input class="fc" id="inb-peso" type="number" min="0" step="0.1" placeholder="0.00" style="max-width:140px;"></div>
+                  </div>
+
+                  <!-- Foto de evidencia -->
+                  <div class="fg">
+                    <label class="fl">Foto de evidencia</label>
+                    <div class="fotozone" id="inb-fotozone" onclick="document.getElementById('inb-file').click()">
+                      <img id="inb-fotoprev" class="fotoprev" style="display:none;max-height:120px;width:100%;object-fit:cover;border-radius:var(--r);">
+                      <div id="inb-fotoicn">
+                        <i class="ti ti-camera" style="font-size:26px;color:var(--txt2);"></i>
+                        <div style="font-size:11px;color:var(--txt2);margin-top:4px;">Toca para fotografiar el ítem</div>
+                      </div>
+                    </div>
+                    <input type="file" id="inb-file" accept="image/*" capture="environment" style="display:none;" onchange="inbProcFoto(this)">
+                    <div style="margin-top:4px;display:flex;gap:8px;" id="inb-foto-btns" style="display:none;">
+                      <button class="btn btn-xs" onclick="inbQuitarFoto()" id="btn-inb-quitar-foto" style="display:none;"><i class="ti ti-trash"></i>Quitar foto</button>
+                    </div>
+                  </div>
+
+                  <div class="fg">
+                    <label class="fl">Nota del ítem (opcional)</label>
+                    <input class="fc" id="inb-nota-item" placeholder="Ej: caja rota, etiqueta ilegible…">
+                  </div>
+
+                  <div class="div"></div>
+                  <div class="bgrp">
+                    <button class="btn btn-p" onclick="inbAddItem()"><i class="ti ti-plus"></i>Agregar ítem</button>
+                    <button class="btn btn-xs" onclick="inbLimpiarForm()"><i class="ti ti-refresh"></i>Limpiar</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Columna derecha: lista de ítems ya agregados -->
+              <div>
+                <div class="card" style="position:sticky;top:0;">
+                  <div class="chdr">
+                    <div class="ctitle"><i class="ti ti-list"></i>Ítems capturados</div>
+                    <span class="est est-proceso" id="inb-items-cnt">0</span>
+                  </div>
+                  <div id="inb-items-list" style="max-height:480px;overflow-y:auto;">
+                    <div class="empty" id="inb-items-empty">
+                      <i class="ti ti-package"></i>
+                      <p>Agrega ítems usando el formulario</p>
+                    </div>
+                  </div>
+                  <div class="div"></div>
+                  <button class="btn btn-ok" style="width:100%;justify-content:center;padding:11px;" onclick="inbIrPaso2()">
+                    <i class="ti ti-circle-check"></i>Cerrar tarima → Zona Validación
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Paso 2: Resumen y cierre ── -->
+          <div id="inb-s2" style="display:none;">
+            <div class="twocol">
+              <div class="card">
+                <div class="chdr">
+                  <div class="ctitle"><i class="ti ti-circle-check" style="color:var(--green);"></i>Resumen de tarima</div>
+                </div>
+                <div id="inb-resumen-txt" style="font-size:13px;color:var(--txt2);line-height:1.9;margin-bottom:14px;"></div>
+
+                <div class="fg">
+                  <label class="fl">Zona destino <span style="color:var(--red);">*</span></label>
+                  <select class="fc" id="inb-zona-destino">
+                    <option value="Zona Validación">Zona Validación (default)</option>
+                    <option value="Calidad">Calidad</option>
+                    <option value="DROP">DROP</option>
+                    <option value="Devoluciones">Devoluciones</option>
+                  </select>
+                </div>
+
+                <div class="fg">
+                  <label class="fl">Observaciones finales</label>
+                  <textarea class="fc" id="inb-obs-cierre" placeholder="Comentarios de cierre (opcional)…" style="min-height:60px;"></textarea>
+                </div>
+
+                <div class="div"></div>
+                <div class="bgrp">
+                  <button class="btn btn-sm" onclick="inbVolver1()"><i class="ti ti-arrow-left"></i>Volver a ítems</button>
+                  <button class="btn btn-ok" id="btn-inb-cerrar" onclick="inbCerrarTarima()" style="flex:1;justify-content:center;padding:10px 14px;">
+                    <i class="ti ti-forklift"></i>Confirmar y enviar a Zona Validación
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tabla resumen de ítems -->
+              <div class="card">
+                <div class="chdr"><div class="ctitle"><i class="ti ti-table"></i>Ítems de esta tarima</div></div>
+                <div class="twrap">
+                  <table>
+                    <thead><tr><th>SKU</th><th>Desc.</th><th>Cant.</th><th>Cond.</th><th>📷</th></tr></thead>
+                    <tbody id="inb-resumen-tabla"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /inb-wizard -->
+      </div>
+
+
+      <!-- ═══ PUTAWAY (almacenaje) ═══ -->
+      <div class="page" id="page-putaway">
+        <div id="putaway-tarea-info" style="display:none;" class="alert al-orange">
+          <i class="ti ti-forklift"></i><div id="putaway-tarea-txt"></div>
+        </div>
+
+        <!-- ── HOME de Putaway ── -->
+        <div id="put-home">
+          <div class="mgrid">
+            <div class="mcard"><div class="macc" style="background:var(--blue);"></div>
+              <div class="mlbl">Esperando Putaway</div><div class="mval" id="put-kpi-zona">–</div><div class="msub">en Zona Validación</div></div>
+            <div class="mcard"><div class="macc" style="background:var(--green);"></div>
+              <div class="mlbl">Almacenadas hoy</div><div class="mval" id="put-kpi-hoy">–</div><div class="msub">con ubicación asignada</div></div>
+            <div class="mcard"><div class="macc" style="background:var(--teal);"></div>
+              <div class="mlbl">En proceso ahora</div><div class="mval" id="put-kpi-proceso">–</div><div class="msub">siendo almacenadas</div></div>
+          </div>
+
+          <div class="card">
+            <div class="chdr">
+              <div class="ctitle"><i class="ti ti-forklift"></i>Tarimas listas para almacenar</div>
+              <button class="btn btn-p btn-sm" onclick="putIniciarScan()"><i class="ti ti-scan"></i>Escanear LP</button>
+            </div>
+            <div class="alert al-info" style="margin-bottom:14px;">
+              <i class="ti ti-info-circle"></i>
+              <div>Escanea el LP de una tarima en <strong>Zona Validación</strong> o toca <strong>Almacenar</strong> en cualquier tarima de la lista para asignarle una ubicación del CEDIS.</div>
+            </div>
+            <div id="put-lista-zona"><div class="empty"><i class="ti ti-package"></i><p>No hay tarimas esperando Putaway.</p></div></div>
+          </div>
+
+          <div class="card">
+            <div class="chdr">
+              <div class="ctitle"><i class="ti ti-history" style="color:var(--green);"></i>Historial de almacenajes de hoy</div>
+              <button class="btn btn-sm" onclick="putExpHoy()"><i class="ti ti-file-spreadsheet"></i>Excel</button>
+            </div>
+            <div id="put-historial"><div class="empty"><i class="ti ti-package-check"></i><p>Sin almacenajes registrados hoy.</p></div></div>
+          </div>
+        </div>
+
+        <!-- ── Wizard de Putaway ── -->
+        <div id="put-wizard" style="display:none;">
+          <div class="steps" id="put-steps">
+            <div class="step active" data-step="0"><div class="stepn">1</div><span>Escanear LP</span></div>
+            <div class="step" data-step="1"><div class="stepn">2</div><span>Seleccionar ubicación</span></div>
+            <div class="step" data-step="2"><div class="stepn">3</div><span>Confirmar almacenaje</span></div>
+          </div>
+
+          <!-- Paso 0: Escanear / ingresar LP -->
+          <div id="put-s0">
+            <div class="card">
+              <div class="chdr">
+                <div class="ctitle"><i class="ti ti-scan"></i>Paso 1 — Identificar tarima</div>
+                <button class="btn btn-sm" onclick="putCancelarWizard()"><i class="ti ti-x"></i>Cancelar</button>
+              </div>
+              <div class="alert al-info">
+                <i class="ti ti-info-circle"></i>
+                <div>Escanea el código QR o etiqueta LP de la tarima en Zona Validación, o búscala en la lista.</div>
+              </div>
+              <div class="fg">
+                <label class="fl">Código LP de la tarima</label>
+                <div style="display:flex;gap:8px;">
+                  <input class="fc" id="put-lp-input" placeholder="LP-2024-000001 o escanea con cámara"
+                         style="font-family:var(--mono);font-size:13px;font-weight:600;"
+                         onkeydown="if(event.key==='Enter')putBuscarLP()">
+                  <button class="btn btn-sm btn-p" onclick="abrirScanner('put-lp-input')"><i class="ti ti-scan"></i></button>
+                  <button class="btn btn-sm btn-ok" onclick="putBuscarLP()"><i class="ti ti-search"></i>Buscar</button>
+                </div>
+              </div>
+              <div id="put-s0-resultado" style="margin-top:4px;"></div>
+              <div class="div"></div>
+              <div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:10px;letter-spacing:.08em;text-transform:uppercase;">— O elige una tarima de la lista —</div>
+              <div id="put-s0-lista"></div>
+            </div>
+          </div>
+
+          <!-- Paso 1: Seleccionar ubicación en el CEDIS -->
+          <div id="put-s1" style="display:none;">
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+              <div>
+                <div style="font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.1em;font-weight:700;">Tarima</div>
+                <code id="put-s1-lp" style="font-size:18px;font-weight:800;color:var(--blue);font-family:var(--mono);">—</code>
+              </div>
+              <div id="put-s1-badge"></div>
+              <button class="btn btn-sm" onclick="putGoto(0)"><i class="ti ti-arrow-left"></i>Cambiar tarima</button>
+            </div>
+
+            <div class="twocol" style="grid-template-columns:1.3fr 1fr;">
+              <!-- Plano del CEDIS embebido en Putaway -->
+              <div class="card">
+                <div class="chdr">
+                  <div class="ctitle"><i class="ti ti-layout-grid"></i>Plano del almacén</div>
+                  <span style="font-size:10px;color:var(--txt2);">Toca un rack, bloque o zona especial</span>
+                </div>
+                <div style="margin-bottom:12px;">
+                  <input class="fc" id="put-ubic-manual" placeholder="O escribe directo: A/25/N3 · DROP · Calidad…"
+                         onkeydown="if(event.key==='Enter')putAplicarUbicManual()">
+                </div>
+                <div id="put-cedis-plano" style="overflow-x:auto;"></div>
+              </div>
+
+              <!-- Panel derecho: detalle de posiciones + confirmar selección -->
+              <div>
+                <div class="card" id="put-rack-detalle">
+                  <div class="chdr"><div class="ctitle"><i class="ti ti-info-circle"></i>Selecciona una ubicación</div></div>
+                  <p style="font-size:12px;color:var(--txt2);">Toca un rack en el plano o escribe la ubicación manualmente.</p>
+                </div>
+
+                <div class="card" id="put-ubic-confirmada-card" style="display:none;">
+                  <div class="chdr"><div class="ctitle"><i class="ti ti-map-pin" style="color:var(--green);"></i>Ubicación seleccionada</div></div>
+                  <div style="text-align:center;padding:12px 0;">
+                    <div style="font-size:11px;color:var(--txt2);margin-bottom:4px;">Destino del Putaway:</div>
+                    <code id="put-ubic-display" style="font-size:22px;font-weight:800;color:var(--blue);font-family:var(--mono);display:block;margin-bottom:12px;">—</code>
+                    <button class="btn btn-ok" style="width:100%;justify-content:center;padding:12px;" onclick="putGoto(2)">
+                      <i class="ti ti-arrow-right"></i>Continuar → Confirmar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paso 2: Confirmar y registrar almacenaje -->
+          <div id="put-s2" style="display:none;">
+            <div class="twocol">
+              <div class="card">
+                <div class="chdr">
+                  <div class="ctitle"><i class="ti ti-clipboard-check"></i>Resumen del almacenaje</div>
+                  <button class="btn btn-sm" onclick="putGoto(1)"><i class="ti ti-arrow-left"></i>Cambiar ubicación</button>
+                </div>
+                <div id="put-resumen-hdr" style="margin-bottom:14px;"></div>
+                <div class="twrap">
+                  <table>
+                    <thead><tr><th>SKU</th><th>Descripción</th><th>Cantidad</th><th>Condición</th><th>Foto</th></tr></thead>
+                    <tbody id="put-resumen-items"></tbody>
+                  </table>
+                </div>
+                <div class="fg" style="margin-top:14px;">
+                  <label class="fl">Observaciones del almacenaje (opcional)</label>
+                  <textarea class="fc" id="put-obs-cierre" placeholder="Ej: tarima colocada en nivel 3, esquina derecha…" style="min-height:54px;"></textarea>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="chdr"><div class="ctitle"><i class="ti ti-map-pin" style="color:var(--green);"></i>Destino confirmado</div></div>
+                <div style="text-align:center;padding:20px 16px;">
+                  <div style="width:64px;height:64px;border-radius:50%;background:var(--green-l);border:2px solid rgba(22,163,74,.3);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+                    <i class="ti ti-map-pin" style="font-size:30px;color:var(--green);"></i>
+                  </div>
+                  <code id="put-destino-final" style="font-size:20px;font-weight:800;color:var(--blue);font-family:var(--mono);display:block;margin-bottom:6px;">—</code>
+                  <div id="put-destino-tipo" style="font-size:11px;color:var(--txt2);margin-bottom:20px;"></div>
+                  <button class="btn btn-ok" id="btn-put-confirmar" style="width:100%;justify-content:center;padding:14px;font-size:13px;" onclick="putConfirmarAlmacenaje()">
+                    <i class="ti ti-forklift"></i>Confirmar almacenaje
+                  </button>
+                  <div style="font-size:10px;color:var(--txt3);margin-top:10px;line-height:1.6;">
+                    Al confirmar, la tarima pasará a <strong>estatus: "disponible"</strong> y quedará registrada en Firestore con su ubicación asignada.
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- ═══ QR ═══ -->
 
       <!-- ═══ RASTREOS ═══ -->
       <div class="page" id="page-rastreos">
@@ -1287,6 +1682,8 @@ body.role-operador .adm{display:none!important;}
           <option value="checkin">Check-In</option>
           <option value="conteo">Conteo Cruzado</option>
           <option value="dirigido">Conteo Dirigido</option>
+          <option value="inbound">Inbound (recepción)</option>
+          <option value="putaway">Putaway (almacenaje)</option>
           <option value="otro">Otro</option>
         </select></div>
       <div class="fg"><label class="fl">Urgencia</label>
@@ -1436,10 +1833,7 @@ const S = {
 
   /* Datos en vivo (alimentados por listeners de Firestore) */
   clientes:[], skus:[], ubicaciones:[], operadores:[], tareas:[], conteos:[], checkins:[], sesiones:[],
-  movimientos:[], rastreos:[],
-
-  /* Items temporales del movimiento de montacargas */
-  mtcItems:[],
+  rastreos:[], tarimas:[], itemsTarima:[],
 
   /* Conteo */
   sesionActiva:null, modoConteo:'cruzado', equipo:'1', cItems:[],
@@ -1668,7 +2062,7 @@ function aplicarRol(){
 const PAGE_NAMES={
   dashboard:'Dashboard', operadores:'Gestión de Operadores',
   productividad:'Productividad y Bonos',
-  montacargas:'Montacargas', rastreos:'Rastreos de SKU',
+  inbound:'Inbound · Recepción', putaway:'Putaway · Almacenaje', rastreos:'Rastreos de SKU',
   'tareas-admin':'Panel de Tareas', 'mis-tareas':'Mis Tareas',
   clientes:'Clientes / SKU', ubicaciones:'Ubicaciones',
   layout:'Layout de Racks', conteo:'Conteos',
@@ -1700,7 +2094,8 @@ function navTo(pageId){
   if (pageId==='operadores')   renderOperadores();
   if (pageId==='tareas-admin') renderTareasAdmin();
   if (pageId==='mis-tareas')   renderMisTareas();
-  if (pageId==='montacargas')  { poblarMtcSel(); renderMtcItems(); renderMtcHistorial(); }
+  if (pageId==='inbound')      renderInboundHome();
+  if (pageId==='putaway')      renderPutawayHome();
   if (pageId==='rastreos')     { poblarRasSel(); renderRastreos(); }
   if (pageId==='dashboard')    renderDashboard();
   if (pageId==='productividad'){ poblarProdSels(); renderProductividadEjec(); }
@@ -1770,7 +2165,8 @@ function iniciarListeners(){
   listen('conteos',    docs=>{ S.conteos=docs;    refreshUI('conteos'); });
   listen('checkins',   docs=>{ S.checkins=docs;   refreshUI('checkins');});
   listen('sesiones',   docs=>{ S.sesiones=docs;   refreshUI('sesiones');});
-  listen('movimientos',docs=>{ S.movimientos=docs;refreshUI('movimientos');});
+  listen('tarimas',    docs=>{ S.tarimas=docs;    refreshUI('tarimas');});
+  listen('items_tarima',docs=>{ S.itemsTarima=docs;refreshUI('items_tarima');});
   listen('rastreos',   docs=>{ S.rastreos=docs;   refreshUI('rastreos');});
 }
 function detenerListeners(){ S.listeners.forEach(u=>{try{u()}catch(e){}}); S.listeners=[]; }
@@ -1784,7 +2180,8 @@ function refreshUI(origen){
   if (act==='page-mis-tareas')                         renderMisTareas();
   if (act==='page-operadores'  && origen==='ops')      renderOperadores();
   if (act==='page-monitor')                            renderMonitor();
-  if (act==='page-montacargas' && origen==='movimientos') renderMtcHistorial();
+  if (act==='page-inbound'  && (origen==='tarimas'||origen==='items_tarima')) renderInboundHome();
+  if (act==='page-putaway'  && (origen==='tarimas'||origen==='items_tarima')) renderPutawayHome();
   if (act==='page-rastreos'    && origen==='rastreos')  renderRastreos();
   if (origen==='rastreos')                             actualizarBadgeRastreos();
   if (act==='page-conteo'      && origen==='conteos')  { renderConteoList(); renderValidacionLive(); renderUbicsRegistradas(); }
@@ -1827,6 +2224,16 @@ function actualizarBadges(){
     const tot=dirPend+ciPend;
     bmon.style.display=tot>0?'inline':'none'; bmon.textContent=tot;
   }
+
+  /* Inbound: tarimas abiertas (en captura) */
+  const inbAbiertas=S.tarimas.filter(t=>t.estatus==='abierta'&&enAlmacen(t)).length;
+  const binb=document.getElementById('badge-inbound');
+  if (binb){ binb.style.display=inbAbiertas>0?'inline':'none'; binb.textContent=inbAbiertas; }
+
+  /* Putaway: tarimas esperando ubicación */
+  const putPend=S.tarimas.filter(t=>(t.estatus==='validacion'||t.estatus==='putaway_proceso')&&enAlmacen(t)).length;
+  const bput=document.getElementById('badge-putaway');
+  if (bput){ bput.style.display=putPend>0?'inline':'none'; bput.textContent=putPend; }
 }
 
 /* ══════════ HELPERS DE FECHA ══════════ */
@@ -2364,6 +2771,20 @@ function abrirTareaDesdeOp(id){
       if (t.clienteId){ const sel=document.getElementById('cnt-cli'); if(sel) sel.value=t.clienteId; }
       if (t.ubicacion){ const el=document.getElementById('cnt-ubic'); if(el) el.value=t.ubicacion; }
     },250);
+
+  } else if (t.tipo==='inbound'){
+    const info=document.getElementById('inbound-tarea-info');
+    const txt =document.getElementById('inbound-tarea-txt');
+    if (info) info.style.display='flex';
+    if (txt)  txt.textContent=`Tarea asignada: "${t.titulo}" — recibe la tarima y captura sus ítems.`;
+    navTo('inbound');
+
+  } else if (t.tipo==='putaway'){
+    const info=document.getElementById('putaway-tarea-info');
+    const txt =document.getElementById('putaway-tarea-txt');
+    if (info) info.style.display='flex';
+    if (txt)  txt.textContent=`Tarea asignada: "${t.titulo}" — almacena la tarima asignándole ubicación.`;
+    navTo('putaway');
   }
 }
 
@@ -2432,104 +2853,1245 @@ function rolDe(nombre){
   return o?.rol||'auxiliar';
 }
 
-/* ══════════ MONTACARGAS ══════════
-   Registro de acomodos y movimientos de mercancía.
-   El esfuerzo se mide por MOVIMIENTOS completados, no por piezas,
-   para que el montacarguista no distorsione el ranking. */
 
-function poblarMtcSel(){
-  const el=document.getElementById('mtc-cli'); if(!el) return;
-  const cur=el.value;
-  el.innerHTML='<option value="">Selecciona cliente</option>'+
-    S.clientes.map(c=>`<option value="${c.id||c.id_odoo}">${c.nombre}</option>`).join('');
-  if (cur) el.value=cur;
+/* Helper compartido por Inbound/Putaway: ID seguro de documento */
+function idSeguro(str){
+  return String(str||'').trim().replace(/[\/\\.#$\[\]\s]+/g,'_').toUpperCase();
 }
 
-function mtcAddItem(){
-  const sku=(document.getElementById('mtc-sku')?.value||'').trim();
-  const qty=Number(document.getElementById('mtc-qty')?.value)||0;
-  if (!sku){ toast('Escribe o escanea un SKU','warn'); return; }
-  S.mtcItems.push({sku,qty});
-  document.getElementById('mtc-sku').value='';
-  document.getElementById('mtc-qty').value='';
-  document.getElementById('mtc-sku').focus();
-  renderMtcItems();
+/* ══════════ PUTAWAY — vista inicial (Parte 1: solo lectura/KPIs,
+   el flujo de escaneo + asignación de ubicación llega en la Parte 3) ══════════ */
+/* ═══════════════════════════════════════════════════════
+   PUTAWAY — PARTE 3
+   Flujo: escanear LP → seleccionar ubicación del CEDIS → confirmar almacenaje
+   ═══════════════════════════════════════════════════════ */
+
+/* Estado del wizard de Putaway */
+const PUT = {
+  tarimaId: '',
+  lp: '',
+  tarima: null,
+  items: [],
+  ubicacion: '',
+  ubicTipo: '',   /* 'rack', 'bloque', 'especial' */
+  rackSel: null,
+};
+
+/* Mostrar home o wizard */
+function putMostrarHome(){ show('put-home'); hide('put-wizard'); }
+function putMostrarWizard(){ hide('put-home'); show('put-wizard'); }
+function show(id){ const e=document.getElementById(id); if(e) e.style.display=''; }
+function hide(id){ const e=document.getElementById(id); if(e) e.style.display='none'; }
+
+function putGoto(step){
+  [0,1,2].forEach(i=>{
+    const s=document.getElementById(`put-s${i}`);
+    if(s) s.style.display = i===step ? '' : 'none';
+  });
+  document.querySelectorAll('#put-steps .step').forEach((el,i)=>{
+    el.classList.remove('active','done');
+    if (i<step)  el.classList.add('done');
+    if (i===step) el.classList.add('active');
+  });
+  if (step===1) putRenderCedis();
+  if (step===2) putRenderResumen();
 }
 
-function mtcDelItem(i){ S.mtcItems.splice(i,1); renderMtcItems(); }
+function putCancelarWizard(){
+  if (PUT.lp && !confirm('¿Cancelar el Putaway de esta tarima? Puedes retomarlo en cualquier momento.')) return;
+  Object.assign(PUT,{ tarimaId:'', lp:'', tarima:null, items:[], ubicacion:'', ubicTipo:'', rackSel:null });
+  putMostrarHome();
+}
 
-function renderMtcItems(){
-  const el=document.getElementById('mtc-items-list'); if(!el) return;
-  if (!S.mtcItems.length){ el.innerHTML='<p style="font-size:11px;color:var(--txt3);">Agrega los SKUs de este movimiento.</p>'; return; }
-  el.innerHTML=S.mtcItems.map((it,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg3);border-radius:6px;margin-bottom:4px;">
-      <code style="font-size:11px;flex:1;">${it.sku}</code>
-      <span style="font-family:var(--mono);font-size:12px;">${Number(it.qty).toLocaleString('es-MX')}</span>
-      <button class="btn btn-xs btn-del" onclick="mtcDelItem(${i})"><i class="ti ti-x"></i></button>
+/* ── Renderizar Home de Putaway ── */
+function renderPutawayHome(){
+  const tarimas=S.tarimas.filter(enAlmacen);
+  const enZona=tarimas.filter(t=>t.estatus==='validacion');
+  const enProc=tarimas.filter(t=>t.estatus==='putaway_proceso');
+  const hoy=tarimas.filter(t=>{
+    if (t.estatus!=='disponible') return false;
+    const f=t.fechaPutaway?new Date(t.fechaPutaway):tsToFecha(t);
+    return f && f.toDateString()===new Date().toDateString();
+  });
+
+  setTxt('put-kpi-zona', enZona.length);
+  setTxt('put-kpi-hoy', hoy.length);
+  setTxt('put-kpi-proceso', enProc.length);
+
+  /* Lista de tarimas esperando */
+  const cont=document.getElementById('put-lista-zona');
+  if (cont){
+    const pend=[...enProc,...enZona]; /* en proceso primero */
+    if (!pend.length){
+      cont.innerHTML=`<div class="empty"><i class="ti ti-package"></i><p>No hay tarimas esperando Putaway.</p></div>`;
+    } else {
+      cont.innerHTML=pend.map(t=>{
+        const items=S.itemsTarima.filter(i=>i.tarimaId===t.id||i.lp===t.lp);
+        const totalU=items.reduce((s,i)=>s+Number(i.cantidad||0),0);
+        const enProceso=t.estatus==='putaway_proceso';
+        return `
+        <div class="tcard ${enProceso?'media':''}">
+          <div class="tcard-hdr">
+            <div class="tcard-title"><code>${t.lp||t.id}</code></div>
+            ${estTarimaBadge(t.estatus)}
+          </div>
+          <div class="tcard-meta">
+            ${t.cliente?`<span style="font-size:10px;color:var(--txt2);">Cliente: ${t.cliente}</span>`:''}
+            <span style="font-size:10px;color:var(--txt2);">${items.length} SKU(s) · ${totalU.toLocaleString('es-MX')} unid.</span>
+            <span style="font-size:10px;color:var(--txt2);">📍 ${t.zonaActual||'Zona Validación'}</span>
+            ${t.cerradoPor?`<span style="font-size:10px;color:var(--txt3);">Cerrado por: ${t.cerradoPor}</span>`:''}
+          </div>
+          <div class="tcard-foot">
+            <button class="btn btn-p btn-sm" onclick="putAbrirTarima('${t.id}')">
+              <i class="ti ti-forklift"></i>${enProceso?'Continuar Putaway':'Almacenar'}
+            </button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  /* Historial hoy */
+  const contH=document.getElementById('put-historial');
+  if (contH){
+    if (!hoy.length){
+      contH.innerHTML=`<div class="empty"><i class="ti ti-package-check"></i><p>Sin almacenajes registrados hoy.</p></div>`;
+    } else {
+      contH.innerHTML=hoy.map(t=>`
+        <div class="tcard">
+          <div class="tcard-hdr">
+            <div class="tcard-title"><code>${t.lp||t.id}</code></div>
+            ${estTarimaBadge(t.estatus)}
+          </div>
+          <div class="tcard-meta">
+            ${t.cliente?`<span style="font-size:10px;color:var(--txt2);">Cliente: ${t.cliente}</span>`:''}
+            <span style="font-size:10px;color:var(--txt2);">📍 <strong>${t.ubicacionFinal||t.zonaActual||'—'}</strong></span>
+            ${t.almacenadoPor?`<span style="font-size:10px;color:var(--txt3);">Por: ${t.almacenadoPor}</span>`:''}
+            ${t.fechaPutaway?`<span style="font-size:10px;color:var(--txt3);">${new Date(t.fechaPutaway).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</span>`:''}
+          </div>
+        </div>`).join('');
+    }
+  }
+
+  /* Prellenar lista paso 0 del wizard */
+  const contS0=document.getElementById('put-s0-lista');
+  if (contS0){
+    if (!enZona.length){
+      contS0.innerHTML=`<div class="empty" style="padding:20px;"><i class="ti ti-package"></i><p>No hay tarimas en Zona Validación.</p></div>`;
+    } else {
+      contS0.innerHTML=enZona.map(t=>{
+        const items=S.itemsTarima.filter(i=>i.tarimaId===t.id||i.lp===t.lp);
+        const totalU=items.reduce((s,i)=>s+Number(i.cantidad||0),0);
+        return `
+        <div class="tcard" style="cursor:pointer;" onclick="putAbrirTarima('${t.id}')">
+          <div class="tcard-hdr">
+            <div class="tcard-title"><code>${t.lp||t.id}</code></div>
+            ${estTarimaBadge(t.estatus)}
+          </div>
+          <div class="tcard-meta">
+            ${t.cliente?`<span style="font-size:10px;color:var(--txt2);">Cliente: ${t.cliente}</span>`:''}
+            <span style="font-size:10px;color:var(--txt2);">${items.length} SKU(s) · ${totalU.toLocaleString('es-MX')} unid.</span>
+            <span style="font-size:10px;color:var(--txt2);">📍 ${t.zonaActual||'Zona Validación'}</span>
+          </div>
+          <div class="tcard-foot">
+            <button class="btn btn-p btn-sm" onclick="event.stopPropagation();putAbrirTarima('${t.id}')">
+              <i class="ti ti-forklift"></i>Almacenar esta tarima
+            </button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+/* ── Iniciar scan de LP desde el home ── */
+function putIniciarScan(){
+  Object.assign(PUT,{ tarimaId:'', lp:'', tarima:null, items:[], ubicacion:'', ubicTipo:'', rackSel:null });
+  putMostrarWizard();
+  putGoto(0);
+  renderPutawayHome(); /* refrescar la lista del paso 0 */
+  setTimeout(()=>{ document.getElementById('put-lp-input')?.focus(); },200);
+}
+
+/* ── Buscar LP por texto en el input ── */
+function putBuscarLP(){
+  const lp=(document.getElementById('put-lp-input')?.value||'').trim().toUpperCase();
+  const res=document.getElementById('put-s0-resultado');
+  if (!lp){ toast('Ingresa el código LP','warn'); return; }
+
+  const tarima=S.tarimas.find(t=>(t.lp||'').toUpperCase()===lp || t.id===idSeguro(lp));
+  if (!tarima){
+    if (res) res.innerHTML=`<div class="alert al-err"><i class="ti ti-x"></i><div>LP <strong>${lp}</strong> no encontrado en Firestore.</div></div>`;
+    return;
+  }
+  if (tarima.estatus==='disponible'){
+    if (res) res.innerHTML=`<div class="alert al-warn"><i class="ti ti-alert-triangle"></i><div>Esta tarima ya fue almacenada en <strong>${tarima.ubicacionFinal||'—'}</strong>.</div></div>`;
+    return;
+  }
+  if (tarima.estatus!=='validacion' && tarima.estatus!=='putaway_proceso'){
+    if (res) res.innerHTML=`<div class="alert al-warn"><i class="ti ti-alert-triangle"></i><div>La tarima tiene estatus <strong>${tarima.estatus}</strong>. Solo se pueden almacenar tarimas en "Zona Validación".</div></div>`;
+    return;
+  }
+  if (res) res.innerHTML='';
+  putAbrirTarima(tarima.id);
+}
+
+/* ── Abrir wizard para una tarima específica ── */
+function putAbrirTarima(tarimaId){
+  const t=S.tarimas.find(x=>x.id===tarimaId);
+  if (!t){ toast('Tarima no encontrada','error'); return; }
+  const items=S.itemsTarima.filter(i=>i.tarimaId===tarimaId||i.lp===t.lp);
+  Object.assign(PUT,{
+    tarimaId, lp:t.lp||tarimaId,
+    tarima:t, items,
+    ubicacion: t.ubicacionFinal||'', ubicTipo:'',
+    rackSel:null,
+  });
+  /* Marcar en Firestore como "en proceso" si venía de validacion */
+  if (t.estatus==='validacion'){
+    fsUpd(`tarimas/${tarimaId}`,{ estatus:'putaway_proceso', putawayIniciadoPor:S.nombre, fechaPutawayInicio:new Date().toISOString() }).catch(()=>{});
+  }
+  putMostrarWizard();
+  putGoto(1);
+}
+
+/* ── Paso 1: render del plano del CEDIS embebido en Putaway ── */
+function putRenderCedis(){
+  /* Actualizar header del paso */
+  const lpLbl=document.getElementById('put-s1-lp');
+  const badge=document.getElementById('put-s1-badge');
+  if (lpLbl) lpLbl.textContent=PUT.lp||'—';
+  if (badge) badge.innerHTML=estTarimaBadge(PUT.tarima?.estatus)||'';
+
+  const cont=document.getElementById('put-cedis-plano'); if(!cont) return;
+
+  const rackRow=(letra)=>{
+    const sel=PUT.rackSel===letra?'sel':'';
+    return `<div class="cedis-rack ${sel}" onclick="putSelRack('${letra}')">
+      <span class="rk-name">RACK ${letra}</span>
+      <span class="rk-meta">${RACK_POSICIONES}×${RACK_NIVELES}</span>
+    </div>`;
+  };
+
+  let html='<div class="cedis">';
+  html+=rackRow('A');
+  CEDIS_LAYOUT.pasillos.forEach(p=>{
+    html+=`<div class="cedis-pasillo">Pasillo ${p.n}</div>`;
+    p.racks.forEach(r=>{ html+=rackRow(r); });
+  });
+  html+=`<div class="cedis-pasillo">Pasillo 11</div>`;
+  html+=rackRow('U');
+
+  html+='<div class="cedis-pasillo" style="margin-top:6px;">Bloques de almacenamiento (PTO 1–6)</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:5px;">';
+  CEDIS_LAYOUT.bloques.forEach(b=>{
+    const sel=PUT.ubicacion===`BLOQUE ${b}`?'style="border:2px solid var(--orange);background:var(--orange-l);"':'';
+    html+=`<div class="cedis-block" onclick="putSelBloque('${b}')" ${sel}>${b}</div>`;
+  });
+  html+='</div>';
+
+  html+='<div class="cedis-pasillo" style="margin-top:6px;">Zonas especiales</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;">';
+  CEDIS_LAYOUT.especiales.forEach(z=>{
+    const sel=PUT.ubicacion===z?'border:2px solid var(--blue);background:var(--blue-l);color:var(--blue);':'';
+    html+=`<div class="cedis-special" style="cursor:pointer;${sel}" onclick="putSelEspecial('${z}')">${z}</div>`;
+  });
+  html+='</div>';
+
+  html+='</div>';
+  cont.innerHTML=html;
+
+  /* Si ya hay una ubicación seleccionada previamente, mostrar la tarjeta de confirmación */
+  if (PUT.ubicacion) putActualizarUbicCard();
+}
+
+/* ── Selección de rack: mostrar grilla de posiciones ── */
+function putSelRack(letra){
+  PUT.rackSel=letra;
+  putRenderCedis(); /* refrescar para marcar el rack seleccionado */
+
+  const det=document.getElementById('put-rack-detalle'); if(!det) return;
+  let grid='';
+  for (let niv=RACK_NIVELES; niv>=1; niv--){
+    grid+='<div class="nivelrow"><span class="nivellbl">N'+niv+'</span>';
+    grid+='<div style="display:grid;grid-template-columns:repeat(15,1fr);gap:3px;flex:1;">';
+    for (let pos=1; pos<=RACK_POSICIONES; pos++){
+      const codigo=`${letra}/${pos}/N${niv}`;
+      const sel=PUT.ubicacion===codigo?'sel':'';
+      grid+=`<div class="poscell ${sel}" title="${codigo}" onclick="putSelPosicion('${letra}',${pos},${niv})">${pos}</div>`;
+    }
+    grid+='</div></div>';
+  }
+
+  det.innerHTML=`
+    <div class="chdr">
+      <div class="ctitle"><i class="ti ti-stack-2"></i>Rack ${letra}</div>
+      <span class="est est-proceso">${RACK_POSICIONES}×${RACK_NIVELES}</span>
+    </div>
+    <div style="font-size:9px;color:var(--txt3);margin-bottom:8px;">Toca la posición destino del Putaway. N1 = nivel inferior, N6 = superior.</div>
+    <div style="max-height:340px;overflow:auto;">${grid}</div>`;
+}
+
+/* ── Seleccionar posición específica dentro de un rack ── */
+function putSelPosicion(rack, pos, niv){
+  PUT.ubicacion=`${rack}/${pos}/N${niv}`;
+  PUT.ubicTipo='rack';
+  /* Marcar visual */
+  document.querySelectorAll('#put-rack-detalle .poscell').forEach(c=>{
+    c.classList.toggle('sel', c.title===PUT.ubicacion);
+  });
+  putActualizarUbicCard();
+}
+
+/* ── Seleccionar bloque PTO ── */
+function putSelBloque(b){
+  const det=document.getElementById('put-rack-detalle'); if(!det) return;
+  PUT.rackSel=null;
+  det.innerHTML=`
+    <div class="chdr"><div class="ctitle"><i class="ti ti-box"></i>Bloque ${b}</div>
+      <span class="est est-pendiente">PTO</span></div>
+    <div style="font-size:11px;color:var(--txt2);margin-bottom:10px;">Bloque a piso (PTO ${b}). Elige una subdivisión:</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+      ${[1,2,3,4].map(n=>`<div class="poscell ocup" style="aspect-ratio:auto;padding:14px 6px;" onclick="putSelBloqueN('${b}',${n})">${b}-${n}</div>`).join('')}
+    </div>`;
+  putRenderCedis();
+}
+
+function putSelBloqueN(b, n){
+  PUT.ubicacion=`BLOQUE ${b}-${n}`;
+  PUT.ubicTipo='bloque';
+  document.querySelectorAll('#put-rack-detalle .poscell').forEach(c=>{
+    c.classList.toggle('sel', c.textContent===`${b}-${n}`);
+  });
+  putActualizarUbicCard();
+}
+
+/* ── Seleccionar zona especial ── */
+function putSelEspecial(zona){
+  PUT.ubicacion=zona;
+  PUT.ubicTipo='especial';
+  PUT.rackSel=null;
+  putRenderCedis();
+  const det=document.getElementById('put-rack-detalle');
+  if (det) det.innerHTML=`
+    <div class="chdr"><div class="ctitle"><i class="ti ti-zone"></i>${zona}</div></div>
+    <div class="alert al-info" style="margin-bottom:0;"><i class="ti ti-info-circle"></i><div>Zona especial seleccionada: <strong>${zona}</strong>.</div></div>`;
+  putActualizarUbicCard();
+}
+
+/* ── Ubicación escrita manualmente ── */
+function putAplicarUbicManual(){
+  const v=(document.getElementById('put-ubic-manual')?.value||'').trim();
+  if (!v){ toast('Escribe una ubicación','warn'); return; }
+  const upper=v.toUpperCase();
+  /* Detectar tipo */
+  if (upper.match(/^[A-U]\/\d+\/N[1-6]$/)){
+    PUT.ubicacion=upper; PUT.ubicTipo='rack';
+    const parts=upper.split('/');
+    PUT.rackSel=parts[0];
+    putSelRack(parts[0]);
+    toast(`Rack seleccionado: ${upper}`,'success');
+  } else if (upper.startsWith('BLOQUE') || upper.match(/^[IVX]+-?\d*$/)){
+    PUT.ubicacion=v; PUT.ubicTipo='bloque';
+    putRenderCedis();
+    toast(`Bloque seleccionado: ${v}`,'info');
+  } else if (CEDIS_LAYOUT.especiales.find(z=>z.toUpperCase()===upper)){
+    PUT.ubicacion=CEDIS_LAYOUT.especiales.find(z=>z.toUpperCase()===upper);
+    PUT.ubicTipo='especial';
+    putRenderCedis();
+    toast(`Zona: ${PUT.ubicacion}`,'info');
+  } else {
+    /* Aceptar cualquier texto libre como ubicación especial */
+    PUT.ubicacion=v; PUT.ubicTipo='especial';
+    putRenderCedis();
+    toast(`Ubicación libre: ${v}`,'info');
+  }
+  putActualizarUbicCard();
+}
+
+/* ── Mostrar/ocultar tarjeta de ubicación confirmada ── */
+function putActualizarUbicCard(){
+  const card=document.getElementById('put-ubic-confirmada-card');
+  const disp=document.getElementById('put-ubic-display');
+  if (!PUT.ubicacion){ if(card) card.style.display='none'; return; }
+  if (card) card.style.display='';
+  if (disp) disp.textContent=PUT.ubicacion;
+}
+
+/* ── Paso 2: construir resumen ── */
+function putRenderResumen(){
+  /* Cabecera */
+  const hdr=document.getElementById('put-resumen-hdr');
+  const t=PUT.tarima||{};
+  if (hdr) hdr.innerHTML=`
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+      <span class="est est-proceso">LP: ${PUT.lp}</span>
+      ${t.cliente?`<span class="est est-proceso">${t.cliente}</span>`:''}
+      ${t.po?`<span class="est est-pendiente">PO: ${t.po}</span>`:''}
+      <span class="est est-completada">${PUT.items.length} SKU(s) · ${PUT.items.reduce((s,i)=>s+Number(i.cantidad||0),0).toLocaleString('es-MX')} unid.</span>
+    </div>
+    <div style="font-size:11px;color:var(--txt2);">
+      ${t.proveedor?`Proveedor: <strong>${t.proveedor}</strong> · `:''}
+      ${t.cerradoPor?`Cerrado por: <strong>${t.cerradoPor}</strong>`:''}
+    </div>`;
+
+  /* Tabla ítems */
+  const tb=document.getElementById('put-resumen-items');
+  if (tb) tb.innerHTML=PUT.items.map(it=>`
+    <tr>
+      <td><code style="font-size:10px;">${it.sku}</code></td>
+      <td style="font-size:11px;color:var(--txt2);">${it.desc||'—'}</td>
+      <td style="font-family:var(--mono);font-weight:700;">${Number(it.cantidad).toLocaleString('es-MX')} ${it.unidad||'PZA'}</td>
+      <td><span class="est ${it.condicion==='buena'?'est-completada':'est-pausa'}" style="font-size:9px;">${it.condicion||'buena'}</span></td>
+      <td>${it.fotoUrl?`<i class="ti ti-camera" style="color:var(--green);"></i>`:'—'}</td>
+    </tr>`).join('');
+
+  /* Destino */
+  setTxt('put-destino-final', PUT.ubicacion);
+  const tipo=document.getElementById('put-destino-tipo');
+  if (tipo) tipo.textContent = PUT.ubicTipo==='rack'?'Ubicación en rack (nivel-posición)' : PUT.ubicTipo==='bloque'?'Bloque de almacenamiento (PTO)' : 'Zona especial';
+}
+
+/* ── Confirmar y guardar el almacenaje ── */
+async function putConfirmarAlmacenaje(){
+  if (!PUT.ubicacion){ toast('No has seleccionado una ubicación','warn'); return; }
+  const btn=document.getElementById('btn-put-confirmar');
+  if (btn){ btn.disabled=true; btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;"></div> Guardando…'; }
+
+  const obs=(document.getElementById('put-obs-cierre')?.value||'').trim();
+  const ahora=new Date().toISOString();
+
+  try {
+    /* 1. Actualizar la tarima */
+    await fsUpd(`tarimas/${PUT.tarimaId}`,{
+      estatus: 'disponible',
+      ubicacionFinal: PUT.ubicacion,
+      zonaActual: PUT.ubicacion,
+      ubicTipo: PUT.ubicTipo,
+      obsPutaway: obs,
+      fechaPutaway: ahora,
+      almacenadoPor: S.nombre,
+    });
+
+    /* 2. Actualizar cada ítem con la ubicación final */
+    for (const it of PUT.items){
+      await fsUpd(`items_tarima/${it.id}`,{
+        ubicacionFinal: PUT.ubicacion,
+        fechaPutaway: ahora,
+      }).catch(()=>{});
+    }
+
+    /* 3. Registrar el evento de Putaway para métricas */
+    await fsSet(`putaways/${PUT.tarimaId}_${Date.now()}`,{
+      tarimaId: PUT.tarimaId,
+      lp: PUT.lp,
+      clienteId: PUT.tarima?.clienteId||'',
+      cliente: PUT.tarima?.cliente||'',
+      ubicacion: PUT.ubicacion,
+      ubicTipo: PUT.ubicTipo,
+      totalItems: PUT.items.length,
+      totalUnidades: PUT.items.reduce((s,i)=>s+Number(i.cantidad||0),0),
+      operador: S.nombre,
+      almacen: S.almacen||S.tarima?.almacen||'',
+      obs,
+      fecha: ahora,
+    });
+
+    /* 4. Completar tarea si venía de una tarea asignada */
+    S.tareas=await fsGet('tareas');
+    const completada=await completarTareaActiva(['putaway']);
+    if (completada) ocultarBannersTarea();
+
+    toast(`✅ Tarima "${PUT.lp}" almacenada en ${PUT.ubicacion}`,'success');
+
+    /* 5. Reset y volver al home */
+    Object.assign(PUT,{ tarimaId:'', lp:'', tarima:null, items:[], ubicacion:'', ubicTipo:'', rackSel:null });
+    putMostrarHome();
+
+  } catch(e){
+    toast('❌ Error al confirmar: '+e.message,'error');
+  } finally {
+    if (btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-forklift"></i>Confirmar almacenaje'; }
+  }
+}
+
+/* ── Exportar historial de hoy a Excel ── */
+function putExpHoy(){
+  const hoy=S.tarimas.filter(t=>{
+    if (t.estatus!=='disponible') return false;
+    const f=t.fechaPutaway?new Date(t.fechaPutaway):tsToFecha(t);
+    return f && f.toDateString()===new Date().toDateString();
+  });
+  if (!hoy.length){ toast('Sin almacenajes hoy para exportar','warn'); return; }
+  const rows=hoy.map(t=>({
+    LP: t.lp||t.id,
+    Cliente: t.cliente||'',
+    'Ubicación Final': t.ubicacionFinal||'',
+    'Tipo Ubic.': t.ubicTipo||'',
+    Items: t.totalItems||0,
+    Unidades: t.totalUnidades||0,
+    'Almacenado por': t.almacenadoPor||'',
+    Fecha: t.fechaPutaway?new Date(t.fechaPutaway).toLocaleString('es-MX'):'',
+    Obs: t.obsPutaway||'',
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Putaway');
+  XLSX.writeFile(wb,`Putaway_${new Date().toISOString().split('T')[0]}.xlsx`);
+  toast('Excel generado','success');
+}
+
+/* Pequeño helper: set textContent solo si el elemento existe */
+function setTxt(id,val){ const el=document.getElementById(id); if (el) el.textContent=val; }
+
+/* ═══════════════════════════════════════════════════════
+   PARTE 2 — WIZARD INBOUND
+   Flujo: Home → [LP + cliente + PO] → [ítems en bucle] → [cierre → Zona Validación]
+   Cada ítem queda en `items_tarima` (colección Firestore), la tarima
+   en `tarimas` (doc ID = LP sanitizado, igual patrón que `skus`).
+   ═══════════════════════════════════════════════════════ */
+
+/* Estado del wizard */
+const INB = {
+  lp: '',          /* LP activo */
+  tarimaId: '',    /* doc ID en Firestore (= idSeguro(LP)) */
+  clienteId: '',
+  cliente: '',
+  po: '',
+  prov: '',
+  obsGen: '',
+  items: [],       /* ítems agregados en memoria */
+  fotoDataUrl: null,  /* foto del ítem actual (base64, antes de comprimir y subir) */
+  attrsAbiertos: false,
+  editIdx: null,   /* si se está editando un ítem existente */
+};
+
+/* ── Navegar entre pasos del wizard ── */
+function inbGoto(paso) {
+  ['inb-s0','inb-s1','inb-s2'].forEach((id,i) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (i === paso) ? 'block' : 'none';
+  });
+  document.querySelectorAll('[data-istep]').forEach(el => {
+    const n = Number(el.dataset.istep);
+    el.classList.toggle('active', n === paso);
+    el.classList.toggle('done', n < paso);
+  });
+}
+
+/* ── Abrir home / wizard ── */
+function inbMostrarHome(){ document.getElementById('inb-home').style.display='block'; document.getElementById('inb-wizard').style.display='none'; }
+function inbMostrarWizard(){ document.getElementById('inb-home').style.display='none'; document.getElementById('inb-wizard').style.display='block'; }
+
+/* ── Nueva tarima: limpiar estado y abrir paso 0 ── */
+function inbNuevaTarima(){
+  Object.assign(INB, { lp:'', tarimaId:'', clienteId:'', cliente:'', po:'', prov:'', obsGen:'', items:[], fotoDataUrl:null, attrsAbiertos:false, editIdx:null });
+  /* Poblar selector de clientes */
+  const sel = document.getElementById('inb-cli');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Selecciona cliente —</option>' +
+      S.clientes.map(c => `<option value="${c.id||c.id_odoo}">${c.nombre}</option>`).join('');
+  }
+  /* Pre-fill cliente si venimos de una tarea */
+  const t = S.tareaActivaId ? S.tareas.find(x => x.id === S.tareaActivaId) : null;
+  if (t?.clienteId && sel) sel.value = t.clienteId;
+
+  /* Reset campos paso 0 */
+  ['inb-lp','inb-po','inb-prov','inb-obs-gen'].forEach(id => { const e = document.getElementById(id); if(e) e.value=''; });
+
+  inbMostrarWizard();
+  inbGoto(0);
+}
+
+/* ── Generar LP automático ── */
+function inbGenerarLP(){
+  const lp = generarLP('LP');
+  const el = document.getElementById('inb-lp');
+  if (el) { el.value = lp; el.focus(); }
+}
+
+/* ── Cancelar wizard y volver al home ── */
+function inbCancelarWizard(){
+  if (INB.items.length > 0){
+    if (!confirm(`La tarima "${INB.lp}" tiene ${INB.items.length} ítem(s) no guardados. ¿Cancelar y descartar?`)) return;
+  }
+  /* Si la tarima ya se guardó en Firestore como "abierta", la dejamos ahí */
+  Object.assign(INB, { lp:'', tarimaId:'', clienteId:'', cliente:'', po:'', prov:'', obsGen:'', items:[], fotoDataUrl:null, editIdx:null });
+  inbMostrarHome();
+}
+
+/* ── Paso 0 → Paso 1 ── */
+async function inbIrPaso1(){
+  const lp = (document.getElementById('inb-lp')?.value || '').trim().toUpperCase();
+  const cliSel = document.getElementById('inb-cli');
+  const cliId = cliSel?.value || '';
+  if (!lp){ toast('Ingresa o genera el código LP','warn'); return; }
+  if (!cliId){ toast('Selecciona un cliente','warn'); return; }
+
+  INB.lp = lp;
+  INB.tarimaId = idSeguro(lp);
+  INB.clienteId = cliId;
+  INB.cliente = cliSel?.options[cliSel.selectedIndex]?.text || '';
+  INB.po = document.getElementById('inb-po')?.value?.trim() || '';
+  INB.prov = document.getElementById('inb-prov')?.value?.trim() || '';
+  INB.obsGen = document.getElementById('inb-obs-gen')?.value?.trim() || '';
+
+  /* Verificar duplicado de LP */
+  const existente = S.tarimas.find(t => t.lp === lp || t.id === INB.tarimaId);
+  if (existente){
+    if (existente.estatus === 'abierta'){
+      if (!confirm(`Ya existe la tarima "${lp}" en estado "En captura". ¿Quieres continuar editándola?`)) return;
+      /* Cargar ítems previos de Firestore */
+      const itemsFS = S.itemsTarima.filter(i => i.tarimaId === INB.tarimaId || i.lp === lp);
+      INB.items = itemsFS.map(i => ({ ...i, _guardado: true }));
+    } else {
+      toast(`El LP "${lp}" ya existe con estatus "${existente.estatus}". Usa un código diferente.`,'error');
+      return;
+    }
+  } else {
+    INB.items = [];
+    /* Crear doc de tarima en Firestore como "abierta" */
+    try {
+      await fsSet(`tarimas/${INB.tarimaId}`, {
+        lp, clienteId: INB.clienteId, cliente: INB.cliente,
+        po: INB.po, proveedor: INB.prov, obsGeneral: INB.obsGen,
+        estatus: 'abierta', creadoPor: S.nombre,
+        almacen: S.almacen || '', tareaId: S.tareaActivaId || '',
+        fechaApertura: new Date().toISOString(),
+      });
+    } catch(e){ toast('Error creando tarima: '+e.message,'error'); return; }
+  }
+
+  /* Actualizar label del paso 1 */
+  const lbl = document.getElementById('inb-lp-lbl');
+  if (lbl) lbl.textContent = lp;
+
+  inbLimpiarForm();
+  inbRenderItems();
+  inbGoto(1);
+}
+
+function inbVolver0(){ inbGoto(0); }
+function inbVolver1(){ inbGoto(1); }
+
+/* ── Foto del ítem ── */
+function inbProcFoto(inp){
+  const f = inp.files?.[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    INB.fotoDataUrl = e.target.result;
+    const prev = document.getElementById('inb-fotoprev');
+    const icn  = document.getElementById('inb-fotoicn');
+    const qbtn = document.getElementById('btn-inb-quitar-foto');
+    if (prev){ prev.src = INB.fotoDataUrl; prev.style.display='block'; }
+    if (icn)  icn.style.display = 'none';
+    if (qbtn) qbtn.style.display = 'inline-flex';
+    toast('Foto lista','success');
+  };
+  r.readAsDataURL(f);
+}
+
+function inbQuitarFoto(){
+  INB.fotoDataUrl = null;
+  const prev = document.getElementById('inb-fotoprev');
+  const icn  = document.getElementById('inb-fotoicn');
+  const qbtn = document.getElementById('btn-inb-quitar-foto');
+  const finp = document.getElementById('inb-file');
+  if (prev){ prev.src=''; prev.style.display='none'; }
+  if (icn)  icn.style.display = 'block';
+  if (qbtn) qbtn.style.display = 'none';
+  if (finp) finp.value = '';
+}
+
+/* ── Toggle atributos ── */
+function inbToggleAttrs(){
+  INB.attrsAbiertos = !INB.attrsAbiertos;
+  const el = document.getElementById('inb-attrs');
+  const lbl = document.getElementById('inb-attrs-lbl');
+  if (el) el.style.display = INB.attrsAbiertos ? 'block' : 'none';
+  if (lbl) lbl.textContent = INB.attrsAbiertos ? '− Ocultar atributos' : '+ Atributos (color, talla, medidas)';
+}
+
+/* ── Limpiar formulario de ítem (sin limpiar la lista) ── */
+function inbLimpiarForm(){
+  ['inb-sku','inb-ean','inb-desc','inb-color','inb-talla','inb-medidas','inb-nota-item'].forEach(id => {
+    const e = document.getElementById(id); if(e) e.value = '';
+  });
+  const qty = document.getElementById('inb-qty'); if(qty) qty.value = '';
+  const peso = document.getElementById('inb-peso'); if(peso) peso.value = '';
+  const cond = document.getElementById('inb-cond'); if(cond) cond.value = 'buena';
+  const unid = document.getElementById('inb-unidad'); if(unid) unid.value = 'PZA';
+  INB.fotoDataUrl = null;
+  INB.editIdx = null;
+  inbQuitarFoto();
+  inbAcCerrar();
+  document.getElementById('inb-sku')?.focus();
+}
+
+/* ── Agregar o actualizar ítem en memoria ── */
+async function inbAddItem(){
+  const sku  = (document.getElementById('inb-sku')?.value||'').trim();
+  const qty  = Number(document.getElementById('inb-qty')?.value||0);
+  if (!sku){ toast('Ingresa el SKU o EAN','warn'); document.getElementById('inb-sku')?.focus(); return; }
+  if (!qty || qty <= 0){ toast('Cantidad inválida','warn'); document.getElementById('inb-qty')?.focus(); return; }
+
+  const item = {
+    id: `${INB.tarimaId}_${Date.now()}`,
+    tarimaId: INB.tarimaId,
+    lp: INB.lp,
+    clienteId: INB.clienteId,
+    cliente: INB.cliente,
+    sku,
+    ean:     (document.getElementById('inb-ean')?.value||'').trim(),
+    desc:    (document.getElementById('inb-desc')?.value||'').trim(),
+    cantidad: qty,
+    unidad:  document.getElementById('inb-unidad')?.value||'PZA',
+    condicion: document.getElementById('inb-cond')?.value||'buena',
+    color:   (document.getElementById('inb-color')?.value||'').trim(),
+    talla:   (document.getElementById('inb-talla')?.value||'').trim(),
+    medidas: (document.getElementById('inb-medidas')?.value||'').trim(),
+    peso:    Number(document.getElementById('inb-peso')?.value||0),
+    nota:    (document.getElementById('inb-nota-item')?.value||'').trim(),
+    capturedBy: S.nombre,
+    fotoUrl: null,
+    fotoPath: null,
+    _guardado: false,
+  };
+
+  /* Subir foto si hay */
+  if (INB.fotoDataUrl){
+    try {
+      const f = await dataURLtoFile(INB.fotoDataUrl, `inbound_${item.id}.jpg`);
+      const { url, path } = await subirFotoStorage(f, `inbound/${INB.tarimaId}`);
+      item.fotoUrl = url;
+      item.fotoPath = path;
+      toast('Foto subida ✓','success');
+    } catch(e){
+      toast('Foto sin subir (sin Storage): '+e.message,'warn');
+    }
+  }
+
+  if (INB.editIdx !== null){
+    /* Edición: borrar foto vieja si cambió */
+    const viejo = INB.items[INB.editIdx];
+    if (viejo?.fotoPath && viejo.fotoPath !== item.fotoPath){
+      borrarFotoStorage(viejo.fotoPath);
+    }
+    item.id = viejo.id; /* conservar el mismo ID */
+    INB.items[INB.editIdx] = item;
+    INB.editIdx = null;
+    toast(`Ítem "${sku}" actualizado`,'success');
+  } else {
+    INB.items.push(item);
+    toast(`Ítem "${sku}" × ${qty} agregado`,'success');
+  }
+
+  /* Guardar en Firestore en tiempo real (para recovery si se cierra la app) */
+  try {
+    await fsSet(`items_tarima/${item.id}`, {
+      ...item, _guardado: true,
+      fecha: new Date().toISOString(),
+    });
+    item._guardado = true;
+  } catch(e){ /* offline: se re-sincronizará */ }
+
+  inbLimpiarForm();
+  inbRenderItems();
+}
+
+/* helper: dataURL → File */
+function dataURLtoFile(dataUrl, filename){
+  const arr = dataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while(n--) u8arr[n] = bstr.charCodeAt(n);
+  return new File([u8arr], filename, { type: mime });
+}
+
+/* ── Render lista de ítems capturados ── */
+function inbRenderItems(){
+  const badge = document.getElementById('inb-items-badge');
+  const cnt   = document.getElementById('inb-items-cnt');
+  const lista = document.getElementById('inb-items-list');
+  const empty = document.getElementById('inb-items-empty');
+  const n = INB.items.length;
+  if (badge) badge.textContent = n + ' ítem' + (n!==1?'s':'');
+  if (cnt)   cnt.textContent   = n;
+  if (!lista) return;
+
+  if (!n){
+    if (empty) empty.style.display = 'block';
+    lista.innerHTML = '';
+    const e2 = document.createElement('div');
+    e2.className='empty'; e2.id='inb-items-empty';
+    e2.innerHTML='<i class="ti ti-package"></i><p>Agrega ítems usando el formulario</p>';
+    lista.appendChild(e2);
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  const total = INB.items.reduce((s,i) => s + Number(i.cantidad||0), 0);
+  lista.innerHTML = `
+    <div style="font-size:10px;color:var(--txt2);margin-bottom:8px;text-align:right;">
+      Total: <strong style="font-family:var(--mono);">${total.toLocaleString('es-MX')}</strong> unidades
+    </div>` +
+    INB.items.map((it, idx) => `
+    <div style="border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:8px;background:var(--bg2);">
+      <div style="display:flex;align-items:flex-start;gap:8px;">
+        ${it.fotoUrl ? `<img src="${it.fotoUrl}" style="width:44px;height:44px;object-fit:cover;border-radius:4px;flex-shrink:0;" onerror="this.style.display='none'">` : ''}
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <code style="font-size:11px;font-weight:700;color:var(--blue);">${it.sku}</code>
+            <span class="est ${it.condicion==='buena'?'est-completada':it.condicion==='danada'?'est-pausa':'est-proceso'}" style="font-size:9px;">${it.condicion}</span>
+            ${it._guardado?'<span style="font-size:9px;color:var(--green);">✓ guardado</span>':'<span style="font-size:9px;color:var(--amber);">⏳</span>'}
+          </div>
+          <div style="font-size:11px;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${it.desc||'—'}</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:3px;">
+            <span style="font-family:var(--mono);font-weight:700;font-size:12px;">${Number(it.cantidad).toLocaleString('es-MX')} ${it.unidad}</span>
+            ${it.ean?`<span style="font-size:10px;color:var(--txt3);font-family:var(--mono);">${it.ean}</span>`:''}
+            ${it.color?`<span style="font-size:10px;color:var(--txt2);">${it.color}</span>`:''}
+            ${it.talla?`<span style="font-size:10px;color:var(--txt2);">T:${it.talla}</span>`:''}
+          </div>
+          ${it.nota?`<div style="font-size:10px;color:var(--amber);margin-top:2px;">⚠️ ${it.nota}</div>`:''}
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0;">
+          <button class="btn btn-xs" onclick="inbEditarItem(${idx})" title="Editar"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-xs btn-del" onclick="inbEliminarItem(${idx})" title="Eliminar"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>
     </div>`).join('');
 }
 
-async function guardarMovimiento(){
-  const tipo=document.getElementById('mtc-tipo')?.value;
-  const cliId=document.getElementById('mtc-cli')?.value||'';
-  const origen=(document.getElementById('mtc-origen')?.value||'').trim().toUpperCase();
-  const destino=(document.getElementById('mtc-destino')?.value||'').trim().toUpperCase();
-  const obs=(document.getElementById('mtc-obs')?.value||'').trim();
-  if (!S.mtcItems.length){ toast('Agrega al menos un SKU','warn'); return; }
-  if (tipo==='acomodo' && !destino){ toast('Indica la posición destino','warn'); return; }
-  if (tipo==='reubicacion' && (!origen||!destino)){ toast('Indica origen y destino','warn'); return; }
-
-  const btn=document.getElementById('btn-mtc');
-  if (btn){ btn.disabled=true; btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Guardando…'; }
-
-  const cliNombre=S.clientes.find(c=>String(c.id||c.id_odoo)===String(cliId))?.nombre||cliId;
-  const id='MOV-'+Date.now();
-  try {
-    await fsSet(`movimientos/${id}`,{
-      tipo, clienteId:cliId, cliente:cliNombre,
-      origen, destino, items:[...S.mtcItems],
-      observaciones:obs, almacen:S.almacen||'',
-      usuario:S.nombre, fecha:new Date().toISOString(),
-    });
-    toast('✅ Movimiento registrado','success');
-
-    /* Completar tarea de montacargas si venía de una */
-    S.tareas=await fsGet('tareas');
-    await completarTareaActiva(['montacargas','otro']);
-
-    S.mtcItems=[];
-    renderMtcItems();
-    document.getElementById('mtc-origen').value='';
-    document.getElementById('mtc-destino').value='';
-    document.getElementById('mtc-obs').value='';
-  } catch(e){ toast('❌ Error: '+e.message,'error'); }
-  finally { if(btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i>Registrar movimiento'; } }
+/* ── Editar ítem ── */
+function inbEditarItem(idx){
+  const it = INB.items[idx];
+  if (!it) return;
+  INB.editIdx = idx;
+  const set = (id, val) => { const e = document.getElementById(id); if(e) e.value = val||''; };
+  set('inb-sku', it.sku);
+  set('inb-ean', it.ean);
+  set('inb-desc', it.desc);
+  set('inb-qty', it.cantidad);
+  set('inb-color', it.color);
+  set('inb-talla', it.talla);
+  set('inb-medidas', it.medidas);
+  set('inb-peso', it.peso||'');
+  set('inb-nota-item', it.nota);
+  const unid = document.getElementById('inb-unidad'); if(unid) unid.value = it.unidad||'PZA';
+  const cond = document.getElementById('inb-cond');   if(cond) cond.value = it.condicion||'buena';
+  /* Mostrar foto previa si existe */
+  if (it.fotoUrl){
+    const prev = document.getElementById('inb-fotoprev');
+    const icn  = document.getElementById('inb-fotoicn');
+    const qbtn = document.getElementById('btn-inb-quitar-foto');
+    if (prev){ prev.src = it.fotoUrl; prev.style.display='block'; }
+    if (icn)  icn.style.display = 'none';
+    if (qbtn) qbtn.style.display = 'inline-flex';
+    INB.fotoDataUrl = it.fotoUrl; /* marca que hay foto */
+  }
+  /* Abrir atributos si hay datos */
+  if ((it.color||it.talla||it.medidas||it.peso) && !INB.attrsAbiertos) inbToggleAttrs();
+  document.getElementById('inb-sku')?.focus();
+  toast(`Editando ítem "${it.sku}" — modifica y pulsa "Agregar ítem"`, 'info');
 }
 
-const MTC_TIPO_LBL={acomodo:'Acomodo',reubicacion:'Reubicación',salida:'Salida',consolidacion:'Consolidación'};
+/* ── Eliminar ítem ── */
+async function inbEliminarItem(idx){
+  const it = INB.items[idx];
+  if (!it) return;
+  if (!confirm(`¿Eliminar el ítem "${it.sku}"?`)) return;
+  /* Borrar foto de Storage */
+  if (it.fotoPath) borrarFotoStorage(it.fotoPath);
+  /* Borrar de Firestore */
+  try { await fsDel(`items_tarima/${it.id}`); } catch(e){ /* offline */ }
+  INB.items.splice(idx, 1);
+  inbRenderItems();
+  toast(`"${it.sku}" eliminado`,'success');
+}
 
-function renderMtcHistorial(){
-  const el=document.getElementById('mtc-historial'); if(!el) return;
-  const hoy=new Date().toDateString();
-  const mios=S.movimientos.filter(m=>
-    m.usuario===S.nombre && new Date(m.fecha).toDateString()===hoy
-  ).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-  if (!mios.length){ el.innerHTML='<div class="empty"><i class="ti ti-forklift"></i><p>Sin movimientos hoy.</p></div>'; return; }
-  el.innerHTML=mios.map(m=>{
-    const nSku=(m.items||[]).length;
-    const nPz=(m.items||[]).reduce((s,i)=>s+Number(i.qty||0),0);
-    return `<div style="border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <span class="est est-proceso">${MTC_TIPO_LBL[m.tipo]||m.tipo}</span>
-        <span style="font-size:10px;color:var(--txt3);font-family:var(--mono);">${fmtHora(m.fecha)}</span>
+/* ── Paso 1 → Paso 2 ── */
+function inbIrPaso2(){
+  if (!INB.items.length){ toast('Agrega al menos un ítem antes de cerrar','warn'); return; }
+  /* Construir resumen */
+  const total = INB.items.reduce((s,i) => s + Number(i.cantidad||0), 0);
+  const cli   = INB.cliente || INB.clienteId;
+
+  const res = document.getElementById('inb-resumen-txt');
+  if (res) res.innerHTML = `
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+      <span class="est est-proceso">LP: ${INB.lp}</span>
+      <span class="est est-proceso">${cli}</span>
+      ${INB.po?`<span class="est est-pendiente">PO: ${INB.po}</span>`:''}
+    </div>
+    <div><strong>Ítems:</strong> ${INB.items.length} referencias · <strong>${total.toLocaleString('es-MX')}</strong> unidades totales</div>
+    ${INB.prov?`<div><strong>Proveedor:</strong> ${INB.prov}</div>`:''}
+    ${INB.obsGen?`<div><strong>Obs. generales:</strong> ${INB.obsGen}</div>`:''}`;
+
+  /* Tabla de ítems en resumen */
+  const tb = document.getElementById('inb-resumen-tabla');
+  if (tb) tb.innerHTML = INB.items.map(it => `
+    <tr>
+      <td><code style="font-size:10px;">${it.sku}</code></td>
+      <td style="font-size:11px;color:var(--txt2);">${it.desc||'—'}</td>
+      <td style="font-family:var(--mono);font-weight:700;">${Number(it.cantidad).toLocaleString('es-MX')} ${it.unidad}</td>
+      <td><span class="est ${it.condicion==='buena'?'est-completada':'est-pausa'}" style="font-size:9px;">${it.condicion}</span></td>
+      <td>${it.fotoUrl?'<i class="ti ti-camera" style="color:var(--green);"></i>':'—'}</td>
+    </tr>`).join('');
+
+  inbGoto(2);
+}
+
+/* ── Cerrar tarima → Zona Validación ── */
+async function inbCerrarTarima(){
+  const zonaDestino = document.getElementById('inb-zona-destino')?.value || 'Zona Validación';
+  const obsCierre   = document.getElementById('inb-obs-cierre')?.value?.trim() || '';
+
+  const btn = document.getElementById('btn-inb-cerrar');
+  if (btn){ btn.disabled=true; btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Cerrando…'; }
+
+  try {
+    /* 1. Actualizar la tarima a estatus "validacion" */
+    await fsUpd(`tarimas/${INB.tarimaId}`, {
+      estatus: 'validacion',
+      zonaActual: zonaDestino,
+      obsCierre,
+      fechaCierre: new Date().toISOString(),
+      cerradoPor: S.nombre,
+      totalItems: INB.items.length,
+      totalUnidades: INB.items.reduce((s,i) => s + Number(i.cantidad||0), 0),
+    });
+
+    /* 2. Asegurar que todos los ítems están en Firestore */
+    for (const it of INB.items){
+      if (!it._guardado){
+        await fsSet(`items_tarima/${it.id}`, {
+          ...it, _guardado: true, fecha: new Date().toISOString(),
+        });
+        it._guardado = true;
+      }
+    }
+
+    /* 3. Completar tarea si venía de una tarea asignada */
+    S.tareas = await fsGet('tareas');
+    const completada = await completarTareaActiva(['inbound']);
+    if (completada) ocultarBannersTarea();
+
+    toast(`✅ Tarima "${INB.lp}" cerrada → ${zonaDestino}. Lista para Putaway.`,'success');
+
+    /* 4. Reset y volver al home */
+    Object.assign(INB, { lp:'', tarimaId:'', clienteId:'', cliente:'', po:'', prov:'', obsGen:'', items:[], fotoDataUrl:null, editIdx:null });
+    inbMostrarHome();
+
+  } catch(e){
+    toast('❌ Error cerrando tarima: '+e.message,'error');
+  } finally {
+    if (btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-forklift"></i>Confirmar y enviar a Zona Validación'; }
+  }
+}
+
+/* ── Retomar tarima abierta desde el home ── */
+async function inbRetomarTarima(tarimaId){
+  const t = S.tarimas.find(x => x.id === tarimaId);
+  if (!t) return;
+  /* Re-popular selector de clientes */
+  const sel = document.getElementById('inb-cli');
+  if (sel){
+    sel.innerHTML = '<option value="">— Selecciona cliente —</option>' +
+      S.clientes.map(c => `<option value="${c.id||c.id_odoo}">${c.nombre}</option>`).join('');
+    sel.value = t.clienteId || '';
+  }
+  /* Llenar paso 0 */
+  const setV = (id, v) => { const e = document.getElementById(id); if(e) e.value = v||''; };
+  setV('inb-lp', t.lp);
+  setV('inb-po', t.po);
+  setV('inb-prov', t.proveedor);
+  setV('inb-obs-gen', t.obsGeneral);
+
+  /* Cargar ítems de Firestore */
+  const itemsFS = S.itemsTarima.filter(i => i.tarimaId === tarimaId || i.lp === t.lp);
+  Object.assign(INB, {
+    lp: t.lp, tarimaId, clienteId: t.clienteId, cliente: t.cliente,
+    po: t.po, prov: t.proveedor||'', obsGen: t.obsGeneral||'',
+    items: itemsFS.map(i => ({ ...i, _guardado: true })),
+    fotoDataUrl: null, editIdx: null,
+  });
+
+  const lbl = document.getElementById('inb-lp-lbl');
+  if (lbl) lbl.textContent = t.lp;
+
+  inbMostrarWizard();
+  inbLimpiarForm();
+  inbRenderItems();
+  inbGoto(1);
+  toast(`Retomando tarima "${t.lp}" con ${itemsFS.length} ítem(s) previo(s)`,'info');
+}
+
+/* ── Autocompletado de SKU en Inbound (mismo pool que el conteo) ── */
+const inbAcSt = { items: [], idx: -1 };
+
+function inbAcBuscar(q){
+  const cont = document.getElementById('ac-inb-sku');
+  if (!cont) return;
+  const query = (q||'').trim().toLowerCase();
+  let pool = S.skus;
+  if (INB.clienteId) pool = pool.filter(s => String(s.cliente_id||s.id_odoo||'') === String(INB.clienteId));
+  let res = query
+    ? pool.filter(s => (s.sku||'').toLowerCase().includes(query)||(s.descripcion||'').toLowerCase().includes(query)||(s.barcode||'').includes(query)).slice(0,15)
+    : pool.slice(0,12);
+  inbAcSt.items = res; inbAcSt.idx = -1;
+  if (!res.length){
+    cont.innerHTML = `<div class="ac-empty">Sin coincidencias${INB.clienteId?' para este cliente':''}. Puedes capturar el SKU manualmente.</div>`;
+    cont.classList.add('open'); return;
+  }
+  cont.innerHTML = res.map((s,i) => `
+    <div class="ac-item" data-i="${i}" onmousedown="inbAcElegir(${i})">
+      <span class="ac-sku">${s.sku||'SIN-SKU'}</span>
+      <span class="ac-desc">${s.descripcion||'—'}</span>
+      <span class="ac-meta">${s.barcode?'📷 '+s.barcode+' · ':''}A mano: ${Number(s.cantidad_mano||0).toLocaleString('es-MX')} ${s.unidad||'PZA'}${s.ubicacion?' · '+s.ubicacion:''}</span>
+    </div>`).join('');
+  cont.classList.add('open');
+}
+
+function inbAcNav(e){
+  const cont = document.getElementById('ac-inb-sku');
+  const abierto = cont?.classList.contains('open');
+  if (e.key === 'ArrowDown' && abierto){ e.preventDefault(); inbAcSt.idx = Math.min(inbAcSt.idx+1, inbAcSt.items.length-1); inbAcMarcar(); }
+  else if (e.key === 'ArrowUp' && abierto){ e.preventDefault(); inbAcSt.idx = Math.max(inbAcSt.idx-1, 0); inbAcMarcar(); }
+  else if (e.key === 'Enter'){
+    if (abierto && inbAcSt.idx >= 0){ e.preventDefault(); inbAcElegir(inbAcSt.idx); }
+    else inbAddItem();
+  }
+  else if (e.key === 'Escape') inbAcCerrar();
+}
+
+function inbAcMarcar(){
+  const cont = document.getElementById('ac-inb-sku'); if(!cont) return;
+  cont.querySelectorAll('.ac-item').forEach(el => {
+    el.classList.toggle('sel', Number(el.dataset.i) === inbAcSt.idx);
+    if (Number(el.dataset.i) === inbAcSt.idx) el.scrollIntoView({block:'nearest'});
+  });
+}
+
+function inbAcElegir(i){
+  const s = inbAcSt.items[i]; if(!s) return;
+  const el   = document.getElementById('inb-sku');  if(el)   el.value = s.sku||'';
+  const desc = document.getElementById('inb-desc'); if(desc) desc.value = s.descripcion||'';
+  const ean  = document.getElementById('inb-ean');  if(ean && s.barcode) ean.value = s.barcode;
+  const unid = document.getElementById('inb-unidad'); if(unid && s.unidad) unid.value = s.unidad;
+  document.getElementById('inb-qty')?.focus();
+  inbAcCerrar();
+}
+
+function inbAcCerrar(){ const c = document.getElementById('ac-inb-sku'); if(c) c.classList.remove('open'); inbAcSt.idx=-1; }
+
+/* ── Manejar el scanner cuando el target es 'inb-lp', 'inb-sku' o 'inb-ean' ── */
+/* Se extiende onScanOk (ya definida) para estos nuevos targets */
+const _origOnScanOk = onScanOk;
+window.onScanOk = function(txt){
+  const val = (txt||'').trim();
+  if (!val) return;
+  if (S.scanTarget === 'inb-lp'){
+    cerrarScanner();
+    const el = document.getElementById('inb-lp'); if(el) el.value = val.toUpperCase();
+    toast('LP escaneado: '+val,'success');
+  } else if (S.scanTarget === 'inb-sku'){
+    cerrarScanner();
+    const el = document.getElementById('inb-sku'); if(el) el.value = val;
+    /* Buscar en catálogo */
+    const s = S.skus.find(x => x.sku===val||x.barcode===val||(String(x.id_odoo)===val));
+    if (s){
+      const desc = document.getElementById('inb-desc'); if(desc) desc.value = s.descripcion||'';
+      const ean  = document.getElementById('inb-ean');  if(ean && s.barcode) ean.value = s.barcode;
+      const unid = document.getElementById('inb-unidad'); if(unid && s.unidad) unid.value = s.unidad;
+      toast(`SKU: ${s.sku} — ${s.descripcion||''}`, 'success');
+    } else { toast('Código capturado: '+val,'info'); }
+    document.getElementById('inb-qty')?.focus();
+  } else if (S.scanTarget === 'inb-ean'){
+    cerrarScanner();
+    const el = document.getElementById('inb-ean'); if(el) el.value = val;
+    /* Buscar SKU por EAN */
+    const s = S.skus.find(x => x.barcode===val);
+    if (s && !document.getElementById('inb-sku')?.value){
+      const sk   = document.getElementById('inb-sku');   if(sk)   sk.value   = s.sku||'';
+      const desc = document.getElementById('inb-desc');  if(desc) desc.value = s.descripcion||'';
+    }
+    toast('EAN capturado: '+val,'info');
+  } else if (S.scanTarget === 'put-lp-input'){
+    cerrarScanner();
+    const el = document.getElementById('put-lp-input');
+    if(el){ el.value = val.toUpperCase(); }
+    toast('LP escaneado: '+val,'info');
+    putBuscarLP();
+  } else if (S.scanTarget === 'lay-buscar'){
+    cerrarScanner();
+    const el = document.getElementById('lay-buscar'); if(el) el.value = val.toUpperCase();
+    buscarUbicacion();
+  } else {
+    _origOnScanOk(txt);
+  }
+};
+
+/* ── Render HOME de Inbound (reemplaza la versión básica de la Parte 1) ── */
+function renderInboundHome(){
+  const tarimas = S.tarimas.filter(enAlmacen);
+  const abiertas    = tarimas.filter(t => t.estatus === 'abierta');
+  const enValidacion = tarimas.filter(t => t.estatus === 'validacion');
+  const itemsHoy = S.itemsTarima.filter(i => {
+    const f = i.fecha ? new Date(i.fecha) : null;
+    return f && f.toDateString() === new Date().toDateString();
+  }).length;
+
+  setTxt('inb-kpi-abierta', abiertas.length);
+  setTxt('inb-kpi-val', enValidacion.length);
+  setTxt('inb-kpi-items', itemsHoy);
+
+  /* Lista abiertas */
+  const contA = document.getElementById('inb-lista-abiertas');
+  if (contA){
+    if (!abiertas.length){
+      contA.innerHTML = '<div class="empty"><i class="ti ti-package"></i><p>No hay tarimas en captura por el momento.</p></div>';
+    } else {
+      contA.innerHTML = abiertas.map(t => {
+        const items = S.itemsTarima.filter(i => i.tarimaId === t.id || i.lp === t.lp);
+        const totalU = items.reduce((s,i) => s + Number(i.cantidad||0), 0);
+        return `
+        <div class="tcard">
+          <div class="tcard-hdr">
+            <div class="tcard-title"><code>${t.lp||t.id}</code></div>
+            ${estTarimaBadge(t.estatus)}
+          </div>
+          <div class="tcard-meta">
+            ${t.cliente?`<span style="font-size:10px;color:var(--txt2);">Cliente: ${t.cliente}</span>`:''}
+            <span style="font-size:10px;color:var(--txt2);">${items.length} ref(s) · ${totalU.toLocaleString('es-MX')} unid.</span>
+            ${t.po?`<span style="font-size:10px;color:var(--txt3);">PO: ${t.po}</span>`:''}
+            ${t.creadoPor?`<span style="font-size:10px;color:var(--txt2);">Por: ${t.creadoPor}</span>`:''}
+          </div>
+          <div class="tcard-foot">
+            <button class="btn btn-p btn-sm" onclick="inbRetomarTarima('${t.id}')"><i class="ti ti-edit"></i>Continuar captura</button>
+            <button class="btn btn-sm btn-ok" onclick="inbIrCierreDirecto('${t.id}')"><i class="ti ti-circle-check"></i>Cerrar tarima</button>
+            <button class="btn btn-xs btn-del" onclick="inbEliminarTarima('${t.id}','${(t.lp||'').replace(/'/g,'')}')"><i class="ti ti-trash"></i></button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  /* Lista en Zona Validación */
+  const contV = document.getElementById('inb-lista-validacion');
+  if (contV){
+    if (!enValidacion.length){
+      contV.innerHTML = '<div class="empty"><i class="ti ti-package"></i><p>Sin tarimas en Zona Validación.</p></div>';
+    } else {
+      contV.innerHTML = enValidacion.map(t => {
+        const items = S.itemsTarima.filter(i => i.tarimaId === t.id || i.lp === t.lp);
+        const totalU = items.reduce((s,i) => s + Number(i.cantidad||0), 0);
+        return `
+        <div class="tcard">
+          <div class="tcard-hdr">
+            <div class="tcard-title"><code>${t.lp||t.id}</code></div>
+            ${estTarimaBadge(t.estatus)}
+          </div>
+          <div class="tcard-meta">
+            ${t.cliente?`<span style="font-size:10px;color:var(--txt2);">Cliente: ${t.cliente}</span>`:''}
+            <span style="font-size:10px;color:var(--txt2);">${items.length} ref(s) · ${totalU.toLocaleString('es-MX')} unid.</span>
+            <span style="font-size:10px;color:var(--txt2);">📍 ${t.zonaActual||'Zona Validación'}</span>
+            ${t.cerradoPor?`<span style="font-size:10px;color:var(--txt3);">Cerrado por: ${t.cerradoPor}</span>`:''}
+          </div>
+          <div class="tcard-foot">
+            <button class="btn btn-sm" onclick="inbVerDetalle('${t.id}')"><i class="ti ti-eye"></i>Ver detalle</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+/* ── Cierre directo desde el home (sin re-cargar ítems en el form) ── */
+async function inbIrCierreDirecto(tarimaId){
+  const t = S.tarimas.find(x => x.id === tarimaId); if(!t) return;
+  const items = S.itemsTarima.filter(i => i.tarimaId === tarimaId || i.lp === t.lp);
+  if (!items.length){ toast('Esta tarima no tiene ítems capturados. Entra con "Continuar captura".','warn'); return; }
+  /* Cargar en INB y saltar al paso 2 */
+  Object.assign(INB, {
+    lp: t.lp, tarimaId, clienteId: t.clienteId, cliente: t.cliente,
+    po: t.po||'', prov: t.proveedor||'', obsGen: t.obsGeneral||'',
+    items: items.map(i => ({ ...i, _guardado: true })),
+    fotoDataUrl: null, editIdx: null,
+  });
+  inbMostrarWizard();
+  inbGoto(1);
+  inbRenderItems();
+  setTimeout(() => inbIrPaso2(), 80);
+}
+
+/* ── Eliminar tarima abierta ── */
+async function inbEliminarTarima(id, lp){
+  if (!confirm(`¿Eliminar la tarima "${lp}" y todos sus ítems? Esta acción no se puede deshacer.`)) return;
+  try {
+    /* Eliminar ítems */
+    const items = S.itemsTarima.filter(i => i.tarimaId === id || i.lp === lp);
+    for (const it of items){
+      if (it.fotoPath) borrarFotoStorage(it.fotoPath);
+      await fsDel(`items_tarima/${it.id}`);
+    }
+    await fsDel(`tarimas/${id}`);
+    toast(`Tarima "${lp}" eliminada`,'success');
+  } catch(e){ toast('Error: '+e.message,'error'); }
+}
+
+/* ── Ver detalle de tarima en Zona Validación ── */
+function inbVerDetalle(tarimaId){
+  const t = S.tarimas.find(x => x.id === tarimaId); if(!t) return;
+  const items = S.itemsTarima.filter(i => i.tarimaId === tarimaId || i.lp === t.lp);
+  const totalU = items.reduce((s,i) => s + Number(i.cantidad||0), 0);
+  const filas = items.map(it => `
+    <tr>
+      <td><code style="font-size:10px;">${it.sku}</code></td>
+      <td style="font-size:11px;">${it.desc||'—'}</td>
+      <td style="font-family:var(--mono);font-weight:700;">${Number(it.cantidad).toLocaleString('es-MX')} ${it.unidad}</td>
+      <td>${it.color||'—'}</td>
+      <td>${it.talla||'—'}</td>
+      <td><span class="est ${it.condicion==='buena'?'est-completada':'est-pausa'}" style="font-size:9px;">${it.condicion||'buena'}</span></td>
+      <td>${it.fotoUrl?`<a href="${it.fotoUrl}" target="_blank"><i class="ti ti-photo" style="color:var(--green);"></i></a>`:'—'}</td>
+    </tr>`).join('');
+
+  /* Crear modal dinámico */
+  let m = document.getElementById('modal-inb-detalle');
+  if (!m){
+    m = document.createElement('div');
+    m.id = 'modal-inb-detalle';
+    m.className = 'modal-bg';
+    document.body.appendChild(m);
+    m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); });
+  }
+  m.innerHTML = `
+    <div class="modal" style="max-width:720px;">
+      <div class="mhdr">
+        <div class="mtitle"><i class="ti ti-package"></i> Tarima ${t.lp}</div>
+        <button class="mclose" onclick="document.getElementById('modal-inb-detalle').classList.remove('open')">×</button>
       </div>
-      <div style="font-size:12px;margin-bottom:3px;">
-        ${m.origen?`<code style="font-size:10px;">${m.origen}</code> → `:''}<code style="font-size:10px;">${m.destino||'—'}</code>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        ${estTarimaBadge(t.estatus)}
+        ${t.cliente?`<span class="est est-proceso">${t.cliente}</span>`:''}
+        ${t.po?`<span class="est est-pendiente">PO: ${t.po}</span>`:''}
+        <span class="est est-completada">${items.length} refs · ${totalU.toLocaleString('es-MX')} unid.</span>
+        <span style="font-size:10px;color:var(--txt2);">📍 ${t.zonaActual||'Zona Validación'}</span>
       </div>
-      <div style="font-size:11px;color:var(--txt2);">${m.cliente||'—'} · ${nSku} SKUs · ${nPz.toLocaleString('es-MX')} pzs</div>
-      ${m.observaciones?`<div style="font-size:10px;color:var(--txt3);margin-top:3px;">${m.observaciones}</div>`:''}
+      <div class="twrap">
+        <table>
+          <thead><tr><th>SKU</th><th>Descripción</th><th>Cantidad</th><th>Color</th><th>Talla</th><th>Condición</th><th>Foto</th></tr></thead>
+          <tbody>${filas||'<tr><td colspan="7">Sin ítems</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div style="font-size:10px;color:var(--txt3);margin-top:10px;">
+        Cerrado por ${t.cerradoPor||'—'} · ${t.fechaCierre?new Date(t.fechaCierre).toLocaleString('es-MX'):'—'}
+        ${t.obsCierre?` · Obs: ${t.obsCierre}`:''}
+      </div>
     </div>`;
-  }).join('');
+  m.classList.add('open');
 }
 
 /* ══════════ RASTREOS ══════════
@@ -4246,7 +5808,7 @@ function respaldoCompleto(){
     };
     hoja('Conteos',S.conteos,['id','fecha','cliente','ubicacion','equipo','usuario','almacen','items','observaciones','estado','anulado']);
     hoja('CheckIns',S.checkins,['id','fecha','po','cliente','proveedor','usuario','almacen','pallets','validado']);
-    hoja('Movimientos',S.movimientos,['id','fecha','tipo','cliente','origen','destino','usuario','almacen','items','observaciones']);
+    hoja('Tarimas',S.tarimas,['id','lp','fecha','cliente','almacen','estatus','recibidoPor','almacenadoPor','ubicacionFinal']);
     hoja('Rastreos',S.rastreos,['id','fecha','sku','cliente','cantidad','prioridad','estado','levantadoPor','resolucion','resueltoPor']);
     hoja('Tareas',S.tareas,['id','tipo','titulo','cliente','almacen','urgencia','estatus','asignados','inicioEn','completadaEn']);
     hoja('Operadores',S.operadores,['id','nombre','rol','almacen','turno','estado','tareasCompletadas']);
@@ -4271,20 +5833,18 @@ function toast(msg,tipo='info'){
    Dashboard para presentar a dirección: KPIs, gráficos y ranking
    de puntos por operador (resultados × dificultad de tarea). */
 
-const PUNTOS_BASE = { checkin:10, dirigido:15, cruzado:20, tercero:25, montacargas:12 };
+const PUNTOS_BASE = { checkin:10, dirigido:15, cruzado:20, tercero:25, inbound:15, putaway:12 };
 
 /* Puntos por actividad según su naturaleza:
-   - Conteo/check-in: esfuerzo = piezas verificadas (con bono eficiencia)
-   - Montacargas: esfuerzo = movimiento completado (NO escala con piezas,
-     para no inflar puntos por mover tarimas de mucho volumen) */
+   - Conteo/check-in/inbound: esfuerzo = piezas/ítems verificados (con bono eficiencia)
+   - Putaway: esfuerzo = tarima almacenada (movimiento), NO escala con piezas */
 function puntosDe(a, mediaP){
   let base=PUNTOS_BASE[a.tipo]||10;
 
-  if (a.tipo==='montacargas'){
-    /* Cada movimiento vale su base fija + un pequeño extra por
-       complejidad (reubicación/consolidación valen un poco más).
-       NO se multiplica por piezas. */
-    return base; /* puntos planos por movimiento */
+  if (a.tipo==='putaway'){
+    /* Cada almacenaje vale puntos planos por movimiento.
+       NO se multiplica por piezas, para no inflar al montacarguista. */
+    return base;
   }
 
   /* Resto de actividades: bono por eficiencia (piezas/hora) + volumen */
@@ -4358,16 +5918,31 @@ function construirActividades(){
       inicio:t?.inicioEn||f, fin:f, ubicaciones:(c.pallets||[]).length, fecha:f});
   });
 
-  /* Movimientos de montacargas: el esfuerzo se mide por MOVIMIENTOS,
-     no por piezas (un montacarguista mueve mucho volumen rápido). */
-  (S.movimientos||[]).forEach(m=>{
-    if (!enRango(m.fecha,rango)) return;
-    if (!enAlmacen(m)) return;
-    const piezas=(m.items||[]).reduce((s,i)=>s+Number(i.qty||0),0);
-    acts.push({tipo:'montacargas', usuario:m.usuario||'—', cliente:m.cliente||'',
-      clienteId:m.clienteId||'', almacen:m.almacen||'', piezas,
-      inicio:m.fecha, fin:m.fecha, ubicaciones:1, movimientos:1, fecha:m.fecha});
+  /* Inbound: recepción de tarimas. Esfuerzo = ítems capturados. */
+  (S.tarimas||[]).forEach(t=>{
+    const f=t.fechaCierre||t.fechaCreacion||t.creado;
+    if (!enRango(f,rango)) return;
+    if (!enAlmacen(t)) return;
+    const its=S.itemsTarima.filter(i=>i.tarimaId===t.id);
+    const piezas=its.reduce((s,i)=>s+Number(i.cantidad||i.qty||0),0);
+    if (t.recibidoPor || t.creadoPor){
+      acts.push({tipo:'inbound', usuario:t.recibidoPor||t.creadoPor||'—', cliente:t.cliente||'',
+        clienteId:t.clienteId||'', almacen:t.almacen||'', piezas:piezas||its.length,
+        inicio:t.fechaCreacion||f, fin:t.fechaCierre||f, ubicaciones:1, fecha:f});
+    }
   });
+
+  /* Putaway: almacenaje de tarimas. Esfuerzo = movimiento (plano). */
+  (S.tarimas||[]).filter(t=>t.estatus==='disponible'&&t.fechaPutaway).forEach(t=>{
+    if (!enRango(t.fechaPutaway,rango)) return;
+    if (!enAlmacen(t)) return;
+    const its=S.itemsTarima.filter(i=>i.tarimaId===t.id);
+    const piezas=its.reduce((s,i)=>s+Number(i.cantidad||i.qty||0),0);
+    acts.push({tipo:'putaway', usuario:t.almacenadoPor||'—', cliente:t.cliente||'',
+      clienteId:t.clienteId||'', almacen:t.almacen||'', piezas,
+      inicio:t.fechaPutaway, fin:t.fechaPutaway, ubicaciones:1, fecha:t.fechaPutaway});
+  });
+
   return acts.filter(a=>
     (!opF||a.usuario===opF) &&
     (!cliF||String(a.clienteId)===cliF) &&
@@ -4464,12 +6039,12 @@ function pintarCharts(ops, acts){
   destruirChart('chart-actividades');
   const cv2=document.getElementById('chart-actividades');
   if (cv2){
-    const tipos={cruzado:0,dirigido:0,checkin:0};
+    const tipos={cruzado:0,dirigido:0,checkin:0,inbound:0,putaway:0};
     acts.forEach(a=>tipos[a.tipo]=(tipos[a.tipo]||0)+1);
     _charts['chart-actividades']=new Chart(cv2,{type:'doughnut',
-      data:{labels:['Conteo Cruzado','Conteo Dirigido','Check-In'],
-        datasets:[{data:[tipos.cruzado,tipos.dirigido,tipos.checkin],
-          backgroundColor:[c1,c4,c3],borderWidth:0}]},
+      data:{labels:['Conteo Cruzado','Conteo Dirigido','Check-In','Inbound','Putaway'],
+        datasets:[{data:[tipos.cruzado,tipos.dirigido,tipos.checkin,tipos.inbound,tipos.putaway],
+          backgroundColor:[c1,c4,c3,c2,css.getPropertyValue('--green').trim()],borderWidth:0}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}});
   }
 
