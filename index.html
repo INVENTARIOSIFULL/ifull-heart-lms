@@ -1665,6 +1665,15 @@ body.role-operador .adm{display:none!important;}
               </div>
               <input type="file" id="dev-file-guia" accept="image/*" capture="environment" style="display:none;" onchange="devProcFoto('guia',this)">
               <input type="file" id="dev-file-prod" accept="image/*" capture="environment" style="display:none;" onchange="devProcFoto('prod',this)">
+
+              <!-- Fotos adicionales (ilimitadas) -->
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;">Fotos adicionales</span>
+                <button class="btn btn-sm btn-o" onclick="document.getElementById('dev-file-extra').click()"><i class="ti ti-camera-plus"></i>Agregar foto</button>
+              </div>
+              <input type="file" id="dev-file-extra" accept="image/*" capture="environment" style="display:none;" onchange="devAddFotoExtra(this)">
+              <div id="dev-fotos-extra" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;"></div>
+
               <div class="fg"><label class="fl">¿Hay daño? Descríbelo</label>
                 <textarea class="fc" id="dev-dano" placeholder="Ej: empaque severamente dañado, producto incompleto, piezas faltantes…" style="min-height:54px;"></textarea></div>
               <div class="div"></div>
@@ -1935,6 +1944,7 @@ body.role-operador .adm{display:none!important;}
         <div class="card">
           <div class="chdr">
             <div class="ctitle"><i class="ti ti-forklift"></i>Putaway · Almacenajes</div>
+            <button class="btn btn-sm" onclick="expAdmPutaway()"><i class="ti ti-file-spreadsheet"></i>Excel del día</button>
           </div>
           <div class="twrap">
             <table>
@@ -1948,6 +1958,7 @@ body.role-operador .adm{display:none!important;}
         <div class="card">
           <div class="chdr">
             <div class="ctitle"><i class="ti ti-search"></i>Rastreos de SKU</div>
+            <button class="btn btn-sm" onclick="expAdmRastreos()"><i class="ti ti-file-spreadsheet"></i>Excel</button>
           </div>
           <div class="twrap">
             <table>
@@ -3969,15 +3980,9 @@ async function inbAddItem(){
     _guardado: false,
   };
 
-  /* Subir foto al puente de Drive si está configurado; si no, guardar base64 local */
+  /* Foto al puente de Drive o comprimida local (nunca revienta Firestore) */
   if (INB.fotoDataUrl){
-    if (S.driveProxy){
-      const url = await subirFotoDrive(INB.fotoDataUrl, 'Inbound', `${INB.lp||INB.tarimaId}_${item.id}`);
-      if (url){ item.fotoUrl = url; toast('Foto subida a Drive ✓','success'); }
-      else { item.fotoUrl = INB.fotoDataUrl; toast('Foto guardada localmente','info'); }
-    } else {
-      item.fotoUrl = INB.fotoDataUrl; /* sin puente: base64 en el registro */
-    }
+    item.fotoUrl = await procesarFoto(INB.fotoDataUrl, 'Inbound', `${INB.lp||INB.tarimaId}_${item.id}`);
   }
 
   if (INB.editIdx !== null){
@@ -4595,11 +4600,35 @@ function actualizarBadgeRastreos(){
    Flujo del PPT: tipo de ingreso → recepción/validación → evidencia
    fotográfica → clasificación (Stock/Scrap/Validación técnica) → cierre. */
 
-const DEV = { id:'', items:[], fotoGuia:null, fotoProd:null, clasif:'', subclasif:'' };
+const DEV = { id:'', items:[], fotoGuia:null, fotoProd:null, fotosExtra:[], clasif:'', subclasif:'' };
+
+/* Agregar foto adicional (ilimitadas) */
+function devAddFotoExtra(inp){
+  const f=inp.files?.[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    DEV.fotosExtra.push(e.target.result);
+    renderDevFotosExtra();
+    toast('Foto agregada','success');
+  };
+  r.readAsDataURL(f);
+  inp.value=''; /* permitir volver a elegir */
+}
+
+function devDelFotoExtra(i){ DEV.fotosExtra.splice(i,1); renderDevFotosExtra(); }
+
+function renderDevFotosExtra(){
+  const el=document.getElementById('dev-fotos-extra'); if(!el) return;
+  el.innerHTML=DEV.fotosExtra.map((src,i)=>`
+    <div style="position:relative;">
+      <img src="${src}" style="width:100%;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border);">
+      <button onclick="devDelFotoExtra(${i})" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:11px;">×</button>
+    </div>`).join('');
+}
 
 function devNueva(){
   DEV.id='DEV-'+Date.now();
-  DEV.items=[]; DEV.fotoGuia=null; DEV.fotoProd=null; DEV.clasif=''; DEV.subclasif='';
+  DEV.items=[]; DEV.fotoGuia=null; DEV.fotoProd=null; DEV.fotosExtra=[]; DEV.clasif=''; DEV.subclasif='';
   /* Poblar clientes */
   const sel=document.getElementById('dev-cli');
   if (sel) sel.innerHTML='<option value="">— Selecciona cliente —</option>'+
@@ -4716,20 +4745,20 @@ async function devCerrar(){
   const subEl=document.getElementById('dev-sub');
   const estadoFinal=DEV.clasif==='tecnica'?'clasificado':'cerrado';
 
-  /* Subir fotos a Drive si el puente está configurado; si no, guardar base64 */
-  let fotoGuia=DEV.fotoGuia||'', fotoProd=DEV.fotoProd||'';
-  if (S.driveProxy){
-    if (btn) btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Subiendo fotos…';
-    if (DEV.fotoGuia){
-      const u=await subirFotoDrive(DEV.fotoGuia,'Devoluciones',`${DEV.id}_guia`);
-      if (u) fotoGuia=u;
-    }
-    if (DEV.fotoProd){
-      const u=await subirFotoDrive(DEV.fotoProd,'Devoluciones',`${DEV.id}_producto`);
-      if (u) fotoProd=u;
-    }
-    if (btn) btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Guardando…';
+  /* Subir fotos a Drive si el puente está configurado.
+     SIEMPRE se comprimen primero, para que nunca excedan el límite de
+     Firestore (1MB) aunque el puente falle. */
+  let fotoGuia='', fotoProd='';
+  if (btn) btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Procesando fotos…';
+  if (DEV.fotoGuia) fotoGuia=await procesarFoto(DEV.fotoGuia,'Devoluciones',`${DEV.id}_guia`);
+  if (DEV.fotoProd) fotoProd=await procesarFoto(DEV.fotoProd,'Devoluciones',`${DEV.id}_producto`);
+  /* Fotos adicionales */
+  const fotosExtra=[];
+  for (let i=0;i<DEV.fotosExtra.length;i++){
+    const u=await procesarFoto(DEV.fotosExtra[i],'Devoluciones',`${DEV.id}_extra${i+1}`);
+    if (u) fotosExtra.push(u);
   }
+  if (btn) btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Guardando…';
 
   try {
     await fsSet(`devoluciones/${DEV.id}`,{
@@ -4741,6 +4770,7 @@ async function devCerrar(){
       notificacionPrevia:document.getElementById('dev-notif')?.value||'',
       items:[...DEV.items],
       fotoGuia, fotoProd,
+      fotos:fotosExtra,
       dano:document.getElementById('dev-dano')?.value||'',
       clasificacion:DEV.clasif, subclasificacion:subEl?.value||'',
       observaciones:document.getElementById('dev-obs-final')?.value||'',
@@ -4865,12 +4895,12 @@ async function guardarEspecificacion(){
   const cliNombre=S.clientes.find(c=>String(c.id||c.id_odoo)===String(cliId))?.nombre||cliId;
   const id='ESP-'+Date.now();
 
-  /* Subir fotos a Drive si hay puente */
-  let fotoMaster=ESP.fotoMaster||'', fotoProd=ESP.fotoProd||'';
-  if (S.driveProxy){
-    if (btn) btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Subiendo fotos…';
-    if (ESP.fotoMaster){ const u=await subirFotoDrive(ESP.fotoMaster,'Especificaciones',`${id}_master`); if(u) fotoMaster=u; }
-    if (ESP.fotoProd){ const u=await subirFotoDrive(ESP.fotoProd,'Especificaciones',`${id}_producto`); if(u) fotoProd=u; }
+  /* Procesar fotos: Drive o comprimido local (nunca revienta Firestore) */
+  let fotoMaster='', fotoProd='';
+  if (ESP.fotoMaster||ESP.fotoProd){
+    if (btn) btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Procesando fotos…';
+    if (ESP.fotoMaster) fotoMaster=await procesarFoto(ESP.fotoMaster,'Especificaciones',`${id}_master`);
+    if (ESP.fotoProd) fotoProd=await procesarFoto(ESP.fotoProd,'Especificaciones',`${id}_producto`);
     if (btn) btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Guardando…';
   }
 
@@ -6059,6 +6089,22 @@ function onScanOk(txt){
       renderCIItems();
     }
 
+  } else if (S.scanTarget && document.getElementById(S.scanTarget)){
+    /* Target genérico: cualquier campo de texto con ese ID
+       (dev-guia, ras-ubic, esp-sku, dev-sku, ras-sku, etc.) */
+    const el=document.getElementById(S.scanTarget);
+    el.value=val;
+    /* Si el campo es de búsqueda de SKU, intentar autocompletar */
+    if (S.scanTarget.endsWith('-sku')){
+      const sku=S.skus.find(s=>s.barcode===val||s.sku===val||String(s.id_odoo)===val);
+      if (sku){ el.value=sku.sku; toast(`SKU: ${sku.sku}`,'success'); }
+      else toast('Código: '+val,'info');
+    } else {
+      toast('Capturado: '+val,'success');
+    }
+    /* Disparar eventos para que reaccione cualquier listener del campo */
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+
   } else {
     procesarBarcode(val);
   }
@@ -6306,6 +6352,27 @@ function expAdmInbound(){
   });
   if (rows.length<2){ toast('Sin tarimas ese día','warn'); return; }
   expXLSX(rows,`Inbound_${dia}.xlsx`);
+}
+
+function expAdmPutaway(){
+  const dia=diaExport();
+  const rows=[['Fecha','LP','Cliente','Operador','Ubicación','SKU','Cantidad','Estatus']];
+  S.tarimas.filter(t=>t.estatus==='disponible'&&t.fechaPutaway&&enAlmacen(t)&&((t.fechaPutaway||'').split('T')[0]===dia)).forEach(t=>{
+    const its=S.itemsTarima.filter(i=>i.tarimaId===t.id);
+    if (!its.length) rows.push([(t.fechaPutaway||'').split('T')[0],t.lp||t.id,t.cliente||'',t.almacenadoPor||'',t.ubicacionFinal||'','','','Almacenada']);
+    its.forEach(i=>rows.push([(t.fechaPutaway||'').split('T')[0],t.lp||t.id,t.cliente||'',t.almacenadoPor||'',t.ubicacionFinal||'',i.sku||'',i.cantidad||i.qty||0,'Almacenada']));
+  });
+  if (rows.length<2){ toast('Sin almacenajes ese día','warn'); return; }
+  expXLSX(rows,`Putaway_${dia}.xlsx`);
+}
+
+function expAdmRastreos(){
+  const rows=[['Fecha','SKU','Cliente','Cantidad','Prioridad','Ubic. esperada','Dónde buscó','Estado','Levantó','Resolución','Resolvió']];
+  S.rastreos.filter(enAlmacen).forEach(r=>{
+    rows.push([(r.fecha||'').split('T')[0],r.sku||'',r.cliente||'',r.cantidad||0,r.prioridad||'',r.ubicacionEsperada||'',r.dondeBusco||'',r.estado||'',r.levantadoPor||'',r.resolucion||'',r.resueltoPor||'']);
+  });
+  if (rows.length<2){ toast('Sin rastreos para exportar','warn'); return; }
+  expXLSX(rows,'Rastreos_iFull.xlsx');
 }
 
 function expAdmDevoluciones(){
@@ -6691,6 +6758,32 @@ function comprimirFoto(dataUrl, maxLado=1280, calidad=0.7){
 
 /* Sube una foto al puente de Drive. Devuelve la URL o null si no hay puente.
    modulo: 'Devoluciones' | 'Inbound' · nombre: identificador del archivo */
+/* Procesa una foto para guardar de forma SEGURA:
+   1. Si hay puente de Drive → sube y devuelve la URL (ligera)
+   2. Si no hay puente o falla → comprime fuerte y devuelve base64 pequeño
+      (garantizado bajo el límite de 1MB de Firestore)
+   Nunca devuelve una imagen que reviente Firestore. */
+async function procesarFoto(dataUrl, modulo, nombre){
+  if (!dataUrl) return '';
+  /* Intentar Drive primero */
+  if (S.driveProxy){
+    const url=await subirFotoDrive(dataUrl, modulo, nombre);
+    if (url) return url;
+    /* si falló el puente, seguimos al fallback comprimido */
+  }
+  /* Fallback: comprimir agresivo hasta que quepa en Firestore (<900KB) */
+  let calidad=0.6, lado=1000;
+  let comp=await comprimirFoto(dataUrl, lado, calidad);
+  /* base64 pesa ~1.37x los bytes; apuntamos a <900KB de string */
+  while (comp.length>900000 && calidad>0.3){
+    calidad-=0.15; lado=Math.round(lado*0.8);
+    comp=await comprimirFoto(dataUrl, lado, calidad);
+  }
+  /* Si aún es grande, último recorte */
+  if (comp.length>900000) comp=await comprimirFoto(dataUrl, 640, 0.4);
+  return comp.length>1000000 ? '' : comp; /* si imposible, no guardar foto */
+}
+
 async function subirFotoDrive(dataUrl, modulo, nombre){
   if (!dataUrl) return null;
   if (!S.driveProxy) return null; /* sin puente: el llamador guarda local */
