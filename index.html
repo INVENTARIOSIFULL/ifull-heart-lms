@@ -482,6 +482,13 @@ body.role-operador .adm{display:none!important;}
       <button class="nav-item" data-page="checkin">
         <i class="ti ti-scan"></i><span class="nlbl">Check-In</span>
       </button>
+      <button class="nav-item" data-page="montacargas">
+        <i class="ti ti-forklift"></i><span class="nlbl">Montacargas</span>
+      </button>
+      <button class="nav-item" data-page="rastreos">
+        <i class="ti ti-search"></i><span class="nlbl">Rastreos</span>
+        <span class="nbadge" id="badge-rastreos" style="display:none;">0</span>
+      </button>
       <button class="nav-item" data-page="qr">
         <i class="ti ti-qrcode"></i><span class="nlbl">Generador QR</span>
       </button>
@@ -987,6 +994,136 @@ body.role-operador .adm{display:none!important;}
         </div>
       </div>
 
+      <!-- ═══ MONTACARGAS ═══ -->
+      <div class="page" id="page-montacargas">
+        <div class="alert al-info">
+          <i class="ti ti-forklift"></i>
+          <div>Registra acomodos en rack y movimientos de mercancía. Cada movimiento documenta de dónde a dónde se movió, qué SKU y cuánto.</div>
+        </div>
+
+        <div id="mtc-tarea-info" class="alert al-warn" style="display:none;"></div>
+
+        <div class="twocol">
+          <div class="card">
+            <div class="chdr"><div class="ctitle"><i class="ti ti-arrows-move"></i>Nuevo movimiento</div></div>
+
+            <div class="fg"><label class="fl">Tipo de movimiento</label>
+              <select class="fc" id="mtc-tipo">
+                <option value="acomodo">Acomodo en rack (entrada a posición)</option>
+                <option value="reubicacion">Reubicación (cambio de posición)</option>
+                <option value="salida">Salida de posición (surtido/embarque)</option>
+                <option value="consolidacion">Consolidación de tarimas</option>
+              </select></div>
+
+            <div class="fg"><label class="fl">Cliente</label>
+              <select class="fc" id="mtc-cli"><option value="">Selecciona cliente</option></select></div>
+
+            <div class="frow c2">
+              <div class="fg"><label class="fl">Desde (origen)</label>
+                <div style="display:flex;gap:6px;">
+                  <input class="fc" id="mtc-origen" placeholder="DROP / A/12/N1" style="flex:1;">
+                  <button class="btn btn-sm" onclick="abrirScanner('mtc-origen')"><i class="ti ti-scan"></i></button>
+                </div></div>
+              <div class="fg"><label class="fl">Hasta (destino)</label>
+                <div style="display:flex;gap:6px;">
+                  <input class="fc" id="mtc-destino" placeholder="A/25/N2" style="flex:1;">
+                  <button class="btn btn-sm" onclick="abrirScanner('mtc-destino')"><i class="ti ti-scan"></i></button>
+                </div></div>
+            </div>
+
+            <div id="mtc-items-list" style="margin:6px 0;"></div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;align-items:flex-start;">
+              <div class="ac-wrap" style="flex:2;">
+                <input class="fc" id="mtc-sku" placeholder="SKU o descripción…" autocomplete="off"
+                       oninput="acBuscar('mtc-sku',this.value)" onkeydown="acNav(event,'mtc-sku')"
+                       onfocus="acBuscar('mtc-sku',this.value)" onblur="setTimeout(()=>acCerrar('mtc-sku'),150)">
+                <div class="ac-list" id="ac-mtc-sku"></div>
+              </div>
+              <button class="btn btn-sm" onclick="abrirScanner('mtc-sku')"><i class="ti ti-scan"></i></button>
+              <input class="fc" id="mtc-qty" placeholder="Cant." type="number" min="0" style="flex:1;" onkeydown="if(event.key==='Enter')mtcAddItem()">
+              <button class="btn btn-sm btn-p" onclick="mtcAddItem()"><i class="ti ti-plus"></i></button>
+            </div>
+
+            <div class="fg"><label class="fl">Observaciones (opcional)</label>
+              <textarea class="fc" id="mtc-obs" placeholder="Ej: tarima reacomodada por daño, consolidación de 2 posiciones…" style="min-height:50px;"></textarea></div>
+
+            <button class="btn btn-p" id="btn-mtc" onclick="guardarMovimiento()" style="width:100%;justify-content:center;padding:11px;">
+              <i class="ti ti-check"></i>Registrar movimiento
+            </button>
+          </div>
+
+          <div>
+            <div class="card">
+              <div class="chdr"><div class="ctitle"><i class="ti ti-history"></i>Mis movimientos de hoy</div></div>
+              <div id="mtc-historial"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ RASTREOS ═══ -->
+      <div class="page" id="page-rastreos">
+        <div class="alert al-info">
+          <i class="ti ti-search"></i>
+          <div>Cuando no encuentres un SKU durante el surtido o conteo, levanta un rastreo. Quedará registrado para que se investigue dónde está la mercancía.</div>
+        </div>
+
+        <div class="twocol">
+          <div class="card">
+            <div class="chdr"><div class="ctitle"><i class="ti ti-search"></i>Nuevo rastreo</div></div>
+
+            <div class="fg"><label class="fl">Cliente</label>
+              <select class="fc" id="ras-cli"><option value="">Selecciona cliente</option></select></div>
+
+            <div class="fg"><label class="fl">SKU no encontrado</label>
+              <div class="ac-wrap">
+                <input class="fc" id="ras-sku" placeholder="SKU o descripción…" autocomplete="off"
+                       oninput="acBuscar('ras-sku',this.value)" onkeydown="acNav(event,'ras-sku')"
+                       onfocus="acBuscar('ras-sku',this.value)" onblur="setTimeout(()=>acCerrar('ras-sku'),150)">
+                <div class="ac-list" id="ac-ras-sku"></div>
+              </div></div>
+
+            <div class="frow c2">
+              <div class="fg"><label class="fl">Cantidad buscada</label>
+                <input class="fc" id="ras-qty" type="number" min="0" placeholder="0"></div>
+              <div class="fg"><label class="fl">Ubicación esperada</label>
+                <div style="display:flex;gap:6px;">
+                  <input class="fc" id="ras-ubic" placeholder="A/25/N2" style="flex:1;">
+                  <button class="btn btn-sm" onclick="abrirScanner('ras-ubic')"><i class="ti ti-scan"></i></button>
+                </div></div>
+            </div>
+
+            <div class="fg"><label class="fl">¿Dónde buscaste?</label>
+              <textarea class="fc" id="ras-buscado" placeholder="Ej: revisé A/25/N2 y posiciones cercanas, DROP, zona de empaquetado…" style="min-height:54px;"></textarea></div>
+
+            <div class="fg"><label class="fl">Prioridad</label>
+              <select class="fc" id="ras-prioridad">
+                <option value="alta">🔴 Alta — frena un surtido/embarque</option>
+                <option value="media" selected>🟡 Media</option>
+                <option value="baja">🟢 Baja</option>
+              </select></div>
+
+            <button class="btn btn-p" id="btn-ras" onclick="guardarRastreo()" style="width:100%;justify-content:center;padding:11px;">
+              <i class="ti ti-flag"></i>Levantar rastreo
+            </button>
+          </div>
+
+          <div>
+            <div class="card">
+              <div class="chdr">
+                <div class="ctitle"><i class="ti ti-list-search"></i>Rastreos</div>
+                <select class="fc adm" id="ras-filtro" style="width:130px;" onchange="renderRastreos()">
+                  <option value="abierto">Abiertos</option>
+                  <option value="resuelto">Resueltos</option>
+                  <option value="">Todos</option>
+                </select>
+              </div>
+              <div id="ras-lista"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ QR ═══ -->
       <div class="page" id="page-qr">
         <div class="twocol">
@@ -1035,6 +1172,7 @@ body.role-operador .adm{display:none!important;}
               </select>
               <input type="date" id="mon-fecha" class="fc" style="width:155px;" onchange="renderMonitor()">
               <button class="btn btn-sm" onclick="limpiarFiltrosMonitor()"><i class="ti ti-filter-off"></i>Limpiar filtros</button>
+              <button class="btn btn-sm btn-o" onclick="respaldoCompleto()"><i class="ti ti-download"></i>Respaldo Excel</button>
             </div>
             <span style="font-size:11px;color:var(--txt2);">Ordenado por fecha — más reciente primero</span>
           </div>
@@ -1247,7 +1385,12 @@ body.role-operador .adm{display:none!important;}
     <input type="hidden" id="op-id">
     <div class="frow c2">
       <div class="fg"><label class="fl">Nombre completo</label><input class="fc" id="op-nombre" placeholder="Carlos Martínez"></div>
-      <div class="fg"><label class="fl">Rol en la empresa</label><input class="fc" id="op-rol" placeholder="Auxiliar de Inventarios"></div>
+      <div class="fg"><label class="fl">Rol</label>
+        <select class="fc" id="op-rol">
+          <option value="auxiliar">Auxiliar de Inventarios</option>
+          <option value="montacargas">Operador de Montacargas</option>
+          <option value="coordinador">Coordinador</option>
+        </select></div>
     </div>
     <div class="frow c3">
       <div class="fg"><label class="fl">Almacén</label>
@@ -1293,6 +1436,10 @@ const S = {
 
   /* Datos en vivo (alimentados por listeners de Firestore) */
   clientes:[], skus:[], ubicaciones:[], operadores:[], tareas:[], conteos:[], checkins:[], sesiones:[],
+  movimientos:[], rastreos:[],
+
+  /* Items temporales del movimiento de montacargas */
+  mtcItems:[],
 
   /* Conteo */
   sesionActiva:null, modoConteo:'cruzado', equipo:'1', cItems:[],
@@ -1521,6 +1668,7 @@ function aplicarRol(){
 const PAGE_NAMES={
   dashboard:'Dashboard', operadores:'Gestión de Operadores',
   productividad:'Productividad y Bonos',
+  montacargas:'Montacargas', rastreos:'Rastreos de SKU',
   'tareas-admin':'Panel de Tareas', 'mis-tareas':'Mis Tareas',
   clientes:'Clientes / SKU', ubicaciones:'Ubicaciones',
   layout:'Layout de Racks', conteo:'Conteos',
@@ -1552,6 +1700,8 @@ function navTo(pageId){
   if (pageId==='operadores')   renderOperadores();
   if (pageId==='tareas-admin') renderTareasAdmin();
   if (pageId==='mis-tareas')   renderMisTareas();
+  if (pageId==='montacargas')  { poblarMtcSel(); renderMtcItems(); renderMtcHistorial(); }
+  if (pageId==='rastreos')     { poblarRasSel(); renderRastreos(); }
   if (pageId==='dashboard')    renderDashboard();
   if (pageId==='productividad'){ poblarProdSels(); renderProductividadEjec(); }
   if (pageId==='monitor')      renderMonitor();
@@ -1620,6 +1770,8 @@ function iniciarListeners(){
   listen('conteos',    docs=>{ S.conteos=docs;    refreshUI('conteos'); });
   listen('checkins',   docs=>{ S.checkins=docs;   refreshUI('checkins');});
   listen('sesiones',   docs=>{ S.sesiones=docs;   refreshUI('sesiones');});
+  listen('movimientos',docs=>{ S.movimientos=docs;refreshUI('movimientos');});
+  listen('rastreos',   docs=>{ S.rastreos=docs;   refreshUI('rastreos');});
 }
 function detenerListeners(){ S.listeners.forEach(u=>{try{u()}catch(e){}}); S.listeners=[]; }
 
@@ -1632,6 +1784,9 @@ function refreshUI(origen){
   if (act==='page-mis-tareas')                         renderMisTareas();
   if (act==='page-operadores'  && origen==='ops')      renderOperadores();
   if (act==='page-monitor')                            renderMonitor();
+  if (act==='page-montacargas' && origen==='movimientos') renderMtcHistorial();
+  if (act==='page-rastreos'    && origen==='rastreos')  renderRastreos();
+  if (origen==='rastreos')                             actualizarBadgeRastreos();
   if (act==='page-conteo'      && origen==='conteos')  { renderConteoList(); renderValidacionLive(); renderUbicsRegistradas(); }
   if (origen==='ops') poblarSels();
 }
@@ -2269,6 +2424,203 @@ function poblarQRSels(){
    ═══════════════════════════════════════════════════════ */
 
 /* ══════════ SKUs ══════════ */
+/* ══════════ ROLES ══════════ */
+const ROL_LABEL = { auxiliar:'Auxiliar de Inventarios', montacargas:'Operador de Montacargas', coordinador:'Coordinador' };
+function rolLabel(r){ return ROL_LABEL[r]||r||'Auxiliar de Inventarios'; }
+function rolDe(nombre){
+  const o=S.operadores.find(x=>x.nombre?.toLowerCase()===(nombre||'').toLowerCase());
+  return o?.rol||'auxiliar';
+}
+
+/* ══════════ MONTACARGAS ══════════
+   Registro de acomodos y movimientos de mercancía.
+   El esfuerzo se mide por MOVIMIENTOS completados, no por piezas,
+   para que el montacarguista no distorsione el ranking. */
+
+function poblarMtcSel(){
+  const el=document.getElementById('mtc-cli'); if(!el) return;
+  const cur=el.value;
+  el.innerHTML='<option value="">Selecciona cliente</option>'+
+    S.clientes.map(c=>`<option value="${c.id||c.id_odoo}">${c.nombre}</option>`).join('');
+  if (cur) el.value=cur;
+}
+
+function mtcAddItem(){
+  const sku=(document.getElementById('mtc-sku')?.value||'').trim();
+  const qty=Number(document.getElementById('mtc-qty')?.value)||0;
+  if (!sku){ toast('Escribe o escanea un SKU','warn'); return; }
+  S.mtcItems.push({sku,qty});
+  document.getElementById('mtc-sku').value='';
+  document.getElementById('mtc-qty').value='';
+  document.getElementById('mtc-sku').focus();
+  renderMtcItems();
+}
+
+function mtcDelItem(i){ S.mtcItems.splice(i,1); renderMtcItems(); }
+
+function renderMtcItems(){
+  const el=document.getElementById('mtc-items-list'); if(!el) return;
+  if (!S.mtcItems.length){ el.innerHTML='<p style="font-size:11px;color:var(--txt3);">Agrega los SKUs de este movimiento.</p>'; return; }
+  el.innerHTML=S.mtcItems.map((it,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg3);border-radius:6px;margin-bottom:4px;">
+      <code style="font-size:11px;flex:1;">${it.sku}</code>
+      <span style="font-family:var(--mono);font-size:12px;">${Number(it.qty).toLocaleString('es-MX')}</span>
+      <button class="btn btn-xs btn-del" onclick="mtcDelItem(${i})"><i class="ti ti-x"></i></button>
+    </div>`).join('');
+}
+
+async function guardarMovimiento(){
+  const tipo=document.getElementById('mtc-tipo')?.value;
+  const cliId=document.getElementById('mtc-cli')?.value||'';
+  const origen=(document.getElementById('mtc-origen')?.value||'').trim().toUpperCase();
+  const destino=(document.getElementById('mtc-destino')?.value||'').trim().toUpperCase();
+  const obs=(document.getElementById('mtc-obs')?.value||'').trim();
+  if (!S.mtcItems.length){ toast('Agrega al menos un SKU','warn'); return; }
+  if (tipo==='acomodo' && !destino){ toast('Indica la posición destino','warn'); return; }
+  if (tipo==='reubicacion' && (!origen||!destino)){ toast('Indica origen y destino','warn'); return; }
+
+  const btn=document.getElementById('btn-mtc');
+  if (btn){ btn.disabled=true; btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Guardando…'; }
+
+  const cliNombre=S.clientes.find(c=>String(c.id||c.id_odoo)===String(cliId))?.nombre||cliId;
+  const id='MOV-'+Date.now();
+  try {
+    await fsSet(`movimientos/${id}`,{
+      tipo, clienteId:cliId, cliente:cliNombre,
+      origen, destino, items:[...S.mtcItems],
+      observaciones:obs, almacen:S.almacen||'',
+      usuario:S.nombre, fecha:new Date().toISOString(),
+    });
+    toast('✅ Movimiento registrado','success');
+
+    /* Completar tarea de montacargas si venía de una */
+    S.tareas=await fsGet('tareas');
+    await completarTareaActiva(['montacargas','otro']);
+
+    S.mtcItems=[];
+    renderMtcItems();
+    document.getElementById('mtc-origen').value='';
+    document.getElementById('mtc-destino').value='';
+    document.getElementById('mtc-obs').value='';
+  } catch(e){ toast('❌ Error: '+e.message,'error'); }
+  finally { if(btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i>Registrar movimiento'; } }
+}
+
+const MTC_TIPO_LBL={acomodo:'Acomodo',reubicacion:'Reubicación',salida:'Salida',consolidacion:'Consolidación'};
+
+function renderMtcHistorial(){
+  const el=document.getElementById('mtc-historial'); if(!el) return;
+  const hoy=new Date().toDateString();
+  const mios=S.movimientos.filter(m=>
+    m.usuario===S.nombre && new Date(m.fecha).toDateString()===hoy
+  ).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  if (!mios.length){ el.innerHTML='<div class="empty"><i class="ti ti-forklift"></i><p>Sin movimientos hoy.</p></div>'; return; }
+  el.innerHTML=mios.map(m=>{
+    const nSku=(m.items||[]).length;
+    const nPz=(m.items||[]).reduce((s,i)=>s+Number(i.qty||0),0);
+    return `<div style="border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span class="est est-proceso">${MTC_TIPO_LBL[m.tipo]||m.tipo}</span>
+        <span style="font-size:10px;color:var(--txt3);font-family:var(--mono);">${fmtHora(m.fecha)}</span>
+      </div>
+      <div style="font-size:12px;margin-bottom:3px;">
+        ${m.origen?`<code style="font-size:10px;">${m.origen}</code> → `:''}<code style="font-size:10px;">${m.destino||'—'}</code>
+      </div>
+      <div style="font-size:11px;color:var(--txt2);">${m.cliente||'—'} · ${nSku} SKUs · ${nPz.toLocaleString('es-MX')} pzs</div>
+      ${m.observaciones?`<div style="font-size:10px;color:var(--txt3);margin-top:3px;">${m.observaciones}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+/* ══════════ RASTREOS ══════════
+   Buscar un SKU que operaciones no encontró durante surtido/conteo. */
+
+function poblarRasSel(){
+  const el=document.getElementById('ras-cli'); if(!el) return;
+  const cur=el.value;
+  el.innerHTML='<option value="">Selecciona cliente</option>'+
+    S.clientes.map(c=>`<option value="${c.id||c.id_odoo}">${c.nombre}</option>`).join('');
+  if (cur) el.value=cur;
+}
+
+async function guardarRastreo(){
+  const cliId=document.getElementById('ras-cli')?.value||'';
+  const sku=(document.getElementById('ras-sku')?.value||'').trim();
+  const qty=Number(document.getElementById('ras-qty')?.value)||0;
+  const ubic=(document.getElementById('ras-ubic')?.value||'').trim().toUpperCase();
+  const buscado=(document.getElementById('ras-buscado')?.value||'').trim();
+  const prioridad=document.getElementById('ras-prioridad')?.value||'media';
+  if (!sku){ toast('Indica el SKU no encontrado','warn'); return; }
+
+  const btn=document.getElementById('btn-ras');
+  if (btn){ btn.disabled=true; btn.innerHTML='<div class="spin spin-w" style="width:14px;height:14px;display:inline-block;"></div> Guardando…'; }
+
+  const cliNombre=S.clientes.find(c=>String(c.id||c.id_odoo)===String(cliId))?.nombre||cliId;
+  const id='RAS-'+Date.now();
+  try {
+    await fsSet(`rastreos/${id}`,{
+      clienteId:cliId, cliente:cliNombre, sku, cantidad:qty,
+      ubicacionEsperada:ubic, dondeBusco:buscado, prioridad,
+      estado:'abierto', almacen:S.almacen||'',
+      levantadoPor:S.nombre, fecha:new Date().toISOString(),
+      resueltoPor:'', resolucion:'', fechaResuelto:'',
+    });
+    toast('✅ Rastreo levantado','success');
+    ['ras-sku','ras-qty','ras-ubic','ras-buscado'].forEach(x=>{const e=document.getElementById(x); if(e) e.value='';});
+  } catch(e){ toast('❌ Error: '+e.message,'error'); }
+  finally { if(btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-flag"></i>Levantar rastreo'; } }
+}
+
+function renderRastreos(){
+  const el=document.getElementById('ras-lista'); if(!el) return;
+  const filtro=document.getElementById('ras-filtro')?.value;
+  let lista=S.rastreos.filter(enAlmacen);
+  if (filtro) lista=lista.filter(r=>r.estado===filtro);
+  lista.sort((a,b)=>{
+    const op={alta:0,media:1,baja:2};
+    const d=(op[a.prioridad]??1)-(op[b.prioridad]??1);
+    return d!==0?d:(b.fecha||'').localeCompare(a.fecha||'');
+  });
+  if (!lista.length){ el.innerHTML='<div class="empty"><i class="ti ti-search"></i><p>Sin rastreos.</p></div>'; return; }
+  const pColor={alta:'est-pausa',media:'est-pendiente',baja:'est-proceso'};
+  el.innerHTML=lista.map(r=>`
+    <div style="border:1px solid var(--border);border-radius:var(--r);padding:11px;margin-bottom:8px;${r.estado==='resuelto'?'opacity:.65;':''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:6px;">
+        <code style="font-size:12px;font-weight:700;">${r.sku}</code>
+        <span class="est ${r.estado==='resuelto'?'est-completada':pColor[r.prioridad]||'est-pendiente'}">
+          ${r.estado==='resuelto'?'Resuelto':(r.prioridad==='alta'?'🔴 Alta':r.prioridad==='media'?'🟡 Media':'🟢 Baja')}
+        </span>
+      </div>
+      <div style="font-size:11px;color:var(--txt2);margin-bottom:3px;">
+        ${r.cliente||'—'} · ${Number(r.cantidad||0).toLocaleString('es-MX')} pzs${r.ubicacionEsperada?' · esperado en '+r.ubicacionEsperada:''}
+      </div>
+      ${r.dondeBusco?`<div style="font-size:10px;color:var(--txt3);margin-bottom:4px;">Buscó en: ${r.dondeBusco}</div>`:''}
+      <div style="font-size:10px;color:var(--txt3);">Por ${r.levantadoPor||'—'} · ${(r.fecha||'').split('T')[0]} ${fmtHora(r.fecha)}</div>
+      ${r.estado==='resuelto'
+        ? `<div style="font-size:11px;color:var(--green);margin-top:5px;border-top:1px solid var(--border);padding-top:5px;">✓ ${r.resolucion||'Resuelto'} — ${r.resueltoPor||''}</div>`
+        : `<div style="margin-top:7px;"><button class="btn btn-xs btn-ok" onclick="resolverRastreo('${r.id}')"><i class="ti ti-check"></i>Marcar resuelto</button></div>`}
+    </div>`).join('');
+}
+
+async function resolverRastreo(id){
+  const r=S.rastreos.find(x=>x.id===id); if(!r) return;
+  const resolucion=prompt(`¿Dónde se encontró "${r.sku}"? (ubicación o nota)`);
+  if (resolucion===null) return;
+  try {
+    await fsUpd(`rastreos/${id}`,{
+      estado:'resuelto', resolucion:resolucion||'Encontrado',
+      resueltoPor:S.nombre, fechaResuelto:new Date().toISOString(),
+    });
+    toast('Rastreo resuelto','success');
+  } catch(e){ toast('Error: '+e.message,'error'); }
+}
+
+function actualizarBadgeRastreos(){
+  const abiertos=S.rastreos.filter(r=>r.estado==='abierto'&&enAlmacen(r)).length;
+  const b=document.getElementById('badge-rastreos');
+  if (b){ b.textContent=abiertos; b.style.display=abiertos>0?'inline-flex':'none'; }
+}
+
 function filtrarSKUs(){
   const cli=document.getElementById('flt-cli')?.value||'';
   const q=(document.getElementById('flt-sku')?.value||'').toLowerCase().trim();
@@ -3856,6 +4208,54 @@ function expXLSX(rows,name){
 }
 
 /* ══════════ TOAST ══════════ */
+
+/* ══════════ AUDITORÍA + RESPALDO + ANULACIÓN ══════════ */
+async function auditar(accion, detalle){
+  try {
+    await fsSet(`auditoria/AUD-${Date.now()}`,{
+      accion, detalle, usuario:S.nombre||'-', rol:S.rol||'',
+      fecha:new Date().toISOString(),
+    });
+  } catch(e){}
+}
+
+async function anularConteo(id){
+  const c=S.conteos.find(x=>x.id===id); if(!c) return;
+  const motivo=prompt(`Motivo de anulación del conteo en ${c.ubicacion||'-'}:`);
+  if (motivo===null) return;
+  if (!motivo.trim()){ toast('Indica un motivo','warn'); return; }
+  try {
+    await fsUpd(`conteos/${id}`,{anulado:true, motivoAnulacion:motivo, anuladoPor:S.nombre, fechaAnulacion:new Date().toISOString()});
+    await auditar('anular_conteo',`${id} · ${c.ubicacion} · ${motivo}`);
+    toast('Conteo anulado (queda registrado)','success');
+  } catch(e){ toast('Error: '+e.message,'error'); }
+}
+
+function respaldoCompleto(){
+  try {
+    const wb=XLSX.utils.book_new();
+    const hoja=(nombre,datos,cols)=>{
+      if (!datos.length) return;
+      const rows=[cols];
+      datos.forEach(d=>rows.push(cols.map(c=>{
+        const v=d[c];
+        return Array.isArray(v)||typeof v==='object'?JSON.stringify(v):(v??'');
+      })));
+      const ws=XLSX.utils.aoa_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb,ws,nombre.substring(0,28));
+    };
+    hoja('Conteos',S.conteos,['id','fecha','cliente','ubicacion','equipo','usuario','almacen','items','observaciones','estado','anulado']);
+    hoja('CheckIns',S.checkins,['id','fecha','po','cliente','proveedor','usuario','almacen','pallets','validado']);
+    hoja('Movimientos',S.movimientos,['id','fecha','tipo','cliente','origen','destino','usuario','almacen','items','observaciones']);
+    hoja('Rastreos',S.rastreos,['id','fecha','sku','cliente','cantidad','prioridad','estado','levantadoPor','resolucion','resueltoPor']);
+    hoja('Tareas',S.tareas,['id','tipo','titulo','cliente','almacen','urgencia','estatus','asignados','inicioEn','completadaEn']);
+    hoja('Operadores',S.operadores,['id','nombre','rol','almacen','turno','estado','tareasCompletadas']);
+    const fecha=new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb,`Respaldo_iFull_HEART_${fecha}.xlsx`);
+    toast('Respaldo descargado','success');
+    auditar('respaldo','Respaldo completo exportado');
+  } catch(e){ toast('Error en respaldo: '+e.message,'error'); }
+}
 function toast(msg,tipo='info'){
   const icons={success:'check',error:'x',info:'info-circle',warn:'alert-triangle'};
   const clss={success:'t-ok',error:'t-err',info:'t-info',warn:'t-warn'};
@@ -3871,7 +4271,29 @@ function toast(msg,tipo='info'){
    Dashboard para presentar a dirección: KPIs, gráficos y ranking
    de puntos por operador (resultados × dificultad de tarea). */
 
-const PUNTOS_BASE = { checkin:10, dirigido:15, cruzado:20, tercero:25 };
+const PUNTOS_BASE = { checkin:10, dirigido:15, cruzado:20, tercero:25, montacargas:12 };
+
+/* Puntos por actividad según su naturaleza:
+   - Conteo/check-in: esfuerzo = piezas verificadas (con bono eficiencia)
+   - Montacargas: esfuerzo = movimiento completado (NO escala con piezas,
+     para no inflar puntos por mover tarimas de mucho volumen) */
+function puntosDe(a, mediaP){
+  let base=PUNTOS_BASE[a.tipo]||10;
+
+  if (a.tipo==='montacargas'){
+    /* Cada movimiento vale su base fija + un pequeño extra por
+       complejidad (reubicación/consolidación valen un poco más).
+       NO se multiplica por piezas. */
+    return base; /* puntos planos por movimiento */
+  }
+
+  /* Resto de actividades: bono por eficiencia (piezas/hora) + volumen */
+  const pph=pphDe(a);
+  let bonoEf=1;
+  if (mediaP>0 && pph>0) bonoEf=Math.min(1.5, 0.5 + (pph/mediaP)*0.5);
+  const bonoVol=Math.floor(a.piezas/100);
+  return Math.round(base*bonoEf) + bonoVol;
+}
 
 let _charts = {};
 function destruirChart(id){ if(_charts[id]){ try{_charts[id].destroy();}catch(e){} _charts[id]=null; } }
@@ -3935,6 +4357,17 @@ function construirActividades(){
       clienteId:c.clienteId||'', almacen:c.almacen||'', piezas,
       inicio:t?.inicioEn||f, fin:f, ubicaciones:(c.pallets||[]).length, fecha:f});
   });
+
+  /* Movimientos de montacargas: el esfuerzo se mide por MOVIMIENTOS,
+     no por piezas (un montacarguista mueve mucho volumen rápido). */
+  (S.movimientos||[]).forEach(m=>{
+    if (!enRango(m.fecha,rango)) return;
+    if (!enAlmacen(m)) return;
+    const piezas=(m.items||[]).reduce((s,i)=>s+Number(i.qty||0),0);
+    acts.push({tipo:'montacargas', usuario:m.usuario||'—', cliente:m.cliente||'',
+      clienteId:m.clienteId||'', almacen:m.almacen||'', piezas,
+      inicio:m.fecha, fin:m.fecha, ubicaciones:1, movimientos:1, fecha:m.fecha});
+  });
   return acts.filter(a=>
     (!opF||a.usuario===opF) &&
     (!cliF||String(a.clienteId)===cliF) &&
@@ -3945,15 +4378,6 @@ function pphDe(a){
   if (!a.inicio||!a.fin) return 0;
   const h=(new Date(a.fin)-new Date(a.inicio))/3600000;
   return h>0.01?a.piezas/h:0;
-}
-
-function puntosDe(a, mediaP){
-  let base=PUNTOS_BASE[a.tipo]||10;
-  const pph=pphDe(a);
-  let bonoEf=1;
-  if (mediaP>0 && pph>0) bonoEf=Math.min(1.5, 0.5 + (pph/mediaP)*0.5);
-  const bonoVol=Math.floor(a.piezas/100);
-  return Math.round(base*bonoEf) + bonoVol;
 }
 
 function nivelDe(pts){
