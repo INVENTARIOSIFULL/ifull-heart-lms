@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>iFull HEART LMS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -416,6 +419,7 @@ body.role-operador .adm{display:none!important;}
         <i class="ti ti-user-check"></i>Ingresar como operador
       </button>
       <div class="lnote">Sin contraseña · Acceso limitado a tareas asignadas</div>
+      <div style="text-align:center;margin-top:10px;font-size:9px;color:var(--txt3);font-family:var(--mono);">v4.0 · 2026-06-18</div>
     </div>
   </div>
 </div>
@@ -532,7 +536,7 @@ body.role-operador .adm{display:none!important;}
   <div class="main">
     <div class="topbar">
       <button class="clpbtn" onclick="toggleSidebar()" aria-label="Menú"><i class="ti ti-menu-2"></i></button>
-      <div class="tbtitle" id="ptitle">Dashboard</div>
+      <div class="tbtitle" id="ptitle">Dashboard <span style="font-size:9px;color:var(--txt3);font-family:var(--mono);font-weight:400;">v4.0</span></div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span class="adm"><select class="fc" id="sel-almacen" style="width:auto;padding:5px 8px;font-size:11px;" onchange="setAlmacen()">
           <option value="">🏭 Todos los almacenes</option>
@@ -591,18 +595,24 @@ body.role-operador .adm{display:none!important;}
       <!-- ═══ PRODUCTIVIDAD EJECUTIVA (admin) ═══ -->
       <div class="page" id="page-productividad">
         <div class="card" style="margin-bottom:14px;">
-          <div class="chdr" style="margin-bottom:0;">
-            <div class="bgrp">
-              <select class="fc" id="prod-rango" style="width:150px;" onchange="renderProductividadEjec()">
+          <div class="chdr" style="margin-bottom:0;flex-wrap:wrap;gap:8px;">
+            <div class="bgrp" style="flex-wrap:wrap;gap:8px;">
+              <select class="fc" id="prod-rango" style="width:140px;" onchange="renderProductividadEjec()">
                 <option value="hoy">Hoy</option>
                 <option value="semana" selected>Últimos 7 días</option>
                 <option value="mes">Últimos 30 días</option>
                 <option value="todo">Todo</option>
               </select>
-              <select class="fc" id="prod-op" style="width:170px;" onchange="renderProductividadEjec()">
+              <select class="fc" id="prod-op" style="width:160px;" onchange="renderProductividadEjec()">
                 <option value="">Todos los operadores</option>
               </select>
-              <select class="fc" id="prod-cli" style="width:170px;" onchange="renderProductividadEjec()">
+              <select class="fc" id="prod-rol" style="width:150px;" onchange="renderProductividadEjec()">
+                <option value="">Todos los roles</option>
+                <option value="auxiliar">Auxiliar de Inventarios</option>
+                <option value="montacargas">Operador de Montacargas</option>
+                <option value="coordinador">Coordinador</option>
+              </select>
+              <select class="fc" id="prod-cli" style="width:160px;" onchange="renderProductividadEjec()">
                 <option value="">Todos los clientes</option>
               </select>
               <select class="fc" id="prod-act" style="width:160px;" onchange="renderProductividadEjec()">
@@ -614,7 +624,14 @@ body.role-operador .adm{display:none!important;}
                 <option value="putaway">Putaway</option>
                 <option value="rastreo">Rastreos</option>
                 <option value="devolucion">Devoluciones</option>
+                <option value="especificaciones">Especificaciones</option>
               </select>
+              <select class="fc" id="prod-alm" style="width:140px;" onchange="renderProductividadEjec()">
+                <option value="">Ambos almacenes</option>
+                <option value="TEXCOCO">Texcoco</option>
+                <option value="BREA">Brea</option>
+              </select>
+              <button class="btn btn-sm" onclick="limpiarFiltrosProd()"><i class="ti ti-filter-off"></i>Limpiar</button>
             </div>
             <button class="btn btn-sm btn-p" onclick="expProductividadEjec()"><i class="ti ti-file-spreadsheet"></i>Exportar</button>
           </div>
@@ -2476,7 +2493,7 @@ function navTo(pageId){
   const nb=document.querySelector(`[data-page="${pageId}"]`);
   if (pg) pg.classList.add('active');
   if (nb) nb.classList.add('active');
-  document.getElementById('ptitle').textContent=PAGE_NAMES[pageId]||pageId;
+  document.getElementById('ptitle').innerHTML=(PAGE_NAMES[pageId]||pageId)+' <span style="font-size:9px;color:var(--txt3);font-family:var(--mono);font-weight:400;">v4.0</span>';
 
   if (pageId==='clientes')     renderSKUs();
   if (pageId==='ubicaciones')  renderUbicaciones();
@@ -3268,6 +3285,22 @@ function poblarQRSels(){
 /* ══════════ SKUs ══════════ */
 /* ══════════ ROLES ══════════ */
 const ROL_LABEL = { auxiliar:'Auxiliar de Inventarios', montacargas:'Operador de Montacargas', coordinador:'Coordinador' };
+
+/* ── Funciones de tarimas (Inbound/Putaway) que faltaban tras la integración ── */
+const ESTATUS_TARIMA={abierta:'En captura',validacion:'En validación',putaway_proceso:'En Putaway',disponible:'Disponible',pick:'En pick',consumido:'Consumido'};
+
+function estTarimaBadge(e){
+  const m={abierta:'est-proceso',validacion:'est-pausa',putaway_proceso:'est-pausa',disponible:'est-completada',pick:'est-proceso',consumido:'est-pendiente'};
+  return `<span class="est ${m[e]||'est-pendiente'}">${ESTATUS_TARIMA[e]||e||'—'}</span>`;
+}
+
+/* Genera un código LP único: LP-2026-XXXXXX */
+function generarLP(prefijo='LP'){
+  const yyyy=new Date().getFullYear();
+  const rnd=Math.floor(Math.random()*900+100);
+  return `${prefijo}-${yyyy}-${String(Date.now()).slice(-6)}${rnd}`;
+}
+
 function rolLabel(r){ return ROL_LABEL[r]||r||'Auxiliar de Inventarios'; }
 function rolDe(nombre){
   const o=S.operadores.find(x=>x.nombre?.toLowerCase()===(nombre||'').toLowerCase());
@@ -3817,8 +3850,10 @@ function inbNuevaTarima(){
   const t = S.tareaActivaId ? S.tareas.find(x => x.id === S.tareaActivaId) : null;
   if (t?.clienteId && sel) sel.value = t.clienteId;
 
-  /* Reset campos paso 0 */
-  ['inb-lp','inb-po','inb-prov','inb-obs-gen'].forEach(id => { const e = document.getElementById(id); if(e) e.value=''; });
+  /* Reset campos paso 0 y GENERAR LP automático */
+  ['inb-po','inb-prov','inb-obs-gen'].forEach(id => { const e = document.getElementById(id); if(e) e.value=''; });
+  const lpEl=document.getElementById('inb-lp');
+  if (lpEl) lpEl.value=generarLP('LP'); /* LP automático al abrir */
 
   inbMostrarWizard();
   inbGoto(0);
@@ -4187,15 +4222,38 @@ async function inbCerrarTarima(){
       }
     }
 
-    /* 3. Completar tarea si venía de una tarea asignada */
-    S.tareas = await fsGet('tareas');
-    const completada = await completarTareaActiva(['inbound']);
-    if (completada) ocultarBannersTarea();
-
+    /* 3. NO completar la tarea automáticamente. La tarea de inbound
+       puede abarcar N tarimas de N LP. Preguntamos si hay más. */
     toast(`✅ Tarima "${INB.lp}" cerrada → ${zonaDestino}. Lista para Putaway.`,'success');
 
-    /* 4. Reset y volver al home */
+    /* 4. Reset de la tarima actual (pero conservamos cliente para agilizar) */
+    const cliPrev = INB.clienteId, cliNomPrev = INB.cliente;
     Object.assign(INB, { lp:'', tarimaId:'', clienteId:'', cliente:'', po:'', prov:'', obsGen:'', items:[], fotoDataUrl:null, editIdx:null });
+
+    /* 5. Si viene de una tarea asignada, ofrecer registrar otra tarima
+       o finalizar la tarea completa. */
+    if (S.tareaActivaId){
+      const masTarimas = confirm(
+        `Tarima cerrada.\n\n¿Vas a recibir OTRA tarima/LP en esta misma tarea?\n\n` +
+        `• Aceptar = registrar otra tarima (la tarea sigue activa)\n` +
+        `• Cancelar = finalizar la tarea de recepción completa`
+      );
+      if (masTarimas){
+        /* Otra tarima: reabrir wizard con LP nuevo y cliente preseleccionado */
+        inbNuevaTarima();
+        setTimeout(()=>{
+          const sel=document.getElementById('inb-cli');
+          if (sel && cliPrev){ sel.value=cliPrev; }
+        },100);
+        return;
+      } else {
+        /* Finalizar: ahora sí completar la tarea */
+        S.tareas = await fsGet('tareas');
+        const completada = await completarTareaActiva(['inbound']);
+        if (completada){ ocultarBannersTarea(); toast('Tarea de recepción finalizada','success'); }
+      }
+    }
+
     inbMostrarHome();
 
   } catch(e){
@@ -6947,6 +7005,8 @@ function construirActividades(){
   const opF=document.getElementById('prod-op')?.value||'';
   const cliF=document.getElementById('prod-cli')?.value||'';
   const actF=document.getElementById('prod-act')?.value||'';
+  const rolF=document.getElementById('prod-rol')?.value||'';
+  const almF=document.getElementById('prod-alm')?.value||'';
   const acts=[];
   const porSesEq={};
   S.conteos.forEach(c=>{
@@ -7037,7 +7097,17 @@ function construirActividades(){
   return acts.filter(a=>
     (!opF||a.usuario===opF) &&
     (!cliF||String(a.clienteId)===cliF) &&
-    (!actF||a.tipo===actF));
+    (!actF||a.tipo===actF) &&
+    (!almF||a.almacen===almF) &&
+    (!rolF||rolDe(a.usuario)===rolF));
+}
+
+function limpiarFiltrosProd(){
+  ['prod-op','prod-rol','prod-cli','prod-act','prod-alm'].forEach(id=>{
+    const e=document.getElementById(id); if(e) e.value='';
+  });
+  const r=document.getElementById('prod-rango'); if(r) r.value='semana';
+  renderProductividadEjec();
 }
 
 function pphDe(a){
